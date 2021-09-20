@@ -27,9 +27,8 @@ void intArrrayToCharArray(int arr[N], char matrix[N][N])
         if (arr[i] == 0) matrix[i][0] = '0';
 
         int currDigit = countDigits(arr[i]) - 1;
-        matrix[i][currDigit + 1] = '\0'; // Слагаме я, за да обозначим края на char-a.
-                                         //По този начин когато ги принтираме нямаме нужда от още един for,
-                                         //защото когато компилатора види '/0' знае, че е стигнал края на char-a
+        matrix[i][currDigit + 1] = '\0'; 
+		
         while (arr[i] > 0)
         {
             int digit = arr[i] % 10;
@@ -44,8 +43,8 @@ void intArrrayToCharArray(int arr[N], char matrix[N][N])
 int size(const char* str)
 {
     int size = 0;
-    const char* temp = str; //Във временна променлива тъй като работим със самия обект(const char* str),
-                            //а не с негово копия.
+    const char* temp = str; 
+	
     while (*temp != '\0')
     {
         temp++;
