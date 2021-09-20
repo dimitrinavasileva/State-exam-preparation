@@ -1,0 +1,1065 @@
+Упражнение 1:
+use movies;
+
+-- 1.1.
+select address
+from studio
+where name = 'MGM';
+
+-- 1.3.
+select starname
+from starsin
+where movieyear = 1980 and movietitle like '%Empire%';
+
+-- 1.5.
+select name
+from moviestar
+where gender = 'M' or address like '%Malibu%';
+
+use pc;
+
+-- 2.1.
+select model, speed as MHz, 
+	hd as GB
+from pc
+where price < 1200;
+
+-- 2.2.
+select model, price / 1.1
+from laptop
+order by price;
+
+-- 2.6.
+select code, model, 
+	speed + ram + 10 * screen as rating
+from laptop
+order by rating desc, code;
+
+use ships;
+-- 3.4.
+select name
+from ships
+where name = class;
+
+-- 3.6.
+select name
+from ships
+where name like '% %'
+	and name not like '% % %';
+Упражнение 2
+use pc;
+
+-- Всички процесори,
+-- които се срещат както в
+-- PC-тата, така и в лаптопите.
+-- Първо да се изведат процесорите
+-- с най-висока честота:
+select speed
+from pc
+intersect
+select speed
+from laptop
+order by speed desc;
+-- order by не е към втората заявка, а към целия резултат
+
+
+use movies;
+-- 1.1.
+select name
+from starsin
+join moviestar on starname = name
+where gender = 'F'
+	and movietitle = 'Terms of Endearment';
+
+-- 1.2.
+select distinct starname
+from starsin
+join movie on movietitle = title
+	and movieyear = year
+where studioname = 'MGM' and movieyear = 1995;
+
+use pc;
+-- 2.2.
+select p.model, price
+from product p
+join laptop on p.model = laptop.model
+where maker = 'B'
+
+union
+
+select p.model, price
+from product p
+join pc on p.model = pc.model
+where maker = 'B'
+
+union
+
+select p.model, price
+from product p
+join printer on p.model = printer.model
+where maker = 'B'
+
+order by price desc;
+
+-- 2.3.
+select distinct p1.hd
+from pc p1
+join pc p2 on p1.hd = p2.hd
+	and p1.code <> p2.code
+
+-- 2.4.
+select distinct p1.model, p2.model
+from pc p1
+join pc p2 on p1.speed = p2.speed and p1.ram = p2.ram
+where p1.model < p2.model;
+
+use ships;
+-- 3.2.
+select name, displacement, numguns
+from outcomes
+join ships on ship = name
+join classes on ships.class = classes.class
+where battle = 'Guadalcanal';
+
+-- 3.3.
+-- грешно решение:
+select distinct country
+from classes
+where type = 'bb' and type = 'bc';
+
+-- грешно решение:
+select distinct country
+from classes
+where type = 'bb' or type = 'bc';
+-- това е "...имат кораби от тип bb или от тип bc или от двата"
+
+-- вярно решение:
+select country
+from classes
+where type = 'bb'
+
+intersect
+
+select country
+from classes
+where type = 'bc';
+
+-- още едно вярно решение:
+select distinct c1.country
+from classes c1
+join classes c2 on c1.country = c2.country
+where c1.type = 'bb' and c2.type = 'bc';
+
+-- 3.4.
+select distinct o1.ship
+from outcomes o1 
+join battles b1 on o1.battle = b1.name
+join outcomes o2 on o1.ship = o2.ship
+join battles b2 on o2.battle = b2.name
+where o1.result = 'damaged' and b1.date < b2.date;
+
+
+Упражнение 3
+use pc;
+-- всички принтери с най-висока цена
+select *
+from printer
+where price >= all (select price from printer);
+
+-- точно един принтер с най-висока цена
+select top 1 *		-- TOP се пише в T-SQL (на Microsoft), в други СУБД е друго
+from printer
+order by price desc;
+
+-- понеже сортирането е бавно, вторият пример може да се запише така:
+select top 1 *
+from printer
+where price >= all (select price from printer);
+
+use ships;
+-- Класовете, за които поне един от корабите им е потънал в битка
+select distinct class
+from ships
+where name in  (select ship 
+				from outcomes
+				where result = 'sunk');
+
+-- всички класове, за които няма потънал кораб (има класове, които нямат кораби)
+-- грешно решение: result != 'sunk'
+select class
+from classes
+where class not in (...); -- copy-paste на цялата горна заявка
+
+
+use movies;
+
+-- 1.1.
+select name
+from moviestar
+where gender = 'F' and name in (select name
+								from movieexec
+								where networth > 10000000);
+
+-- може и select name from movieexec where name in (select name from moviestar...)
+
+-- можеше и с intersect
+(select name
+from moviestar
+where gender = 'F')
+intersect
+(select name
+from movieexec
+where networth > 10000000);
+
+-- 1.2.
+select name
+from moviestar
+where name not in (select name from movieexec);
+
+-- може и с except: select name from moviestar except select name from movieexec;
+
+use pc;
+-- 2.1.
+select distinct maker
+from product
+where model in (select model from pc where speed >= 500);
+
+-- 2.2.
+select *
+from laptop
+where speed < all (select speed from pc); -- all - по-бавни от всички компютри,
+										  -- any - по-бавни от поне един комп.
+
+-- 2.3.
+select distinct model
+from (select model, price
+		from pc
+		union all
+		select model, price
+		from laptop
+		union all
+		select model, price
+		from printer) AllProducts
+where price >= all (select price
+					from pc
+					union all
+					select price
+					from laptop
+					union all
+					select price
+					from printer);
+
+-- 2.4.
+select distinct maker
+from product
+where model in (select model
+				from printer
+				where color = 'y' and price <= all (select price
+													from printer
+													where color = 'y'));
+
+-- 2.5.
+-- първи вариант - с прости (некорелативни) подзаявки:
+select distinct maker
+from product
+where model in (select model
+				from pc
+				where ram <= all (select ram from pc)
+					and speed >= all (select speed
+										from pc
+										where ram <= all (select ram from pc)));
+
+-- вариант с корелативна подзаявка - по-ефективен:
+select distinct maker
+from product
+where model in (select model
+				from pc p1
+				where ram <= all (select ram from pc)
+					and speed >= all (select speed 
+									from pc p2
+									where p1.ram = p2.ram));
+
+use ships;
+-- 3.1.
+select distinct country
+from classes
+where numguns >= all (select numguns from classes);
+
+-- 3.2.
+select name
+from ships
+where class in (select class from classes where bore = 16);
+
+-- 3.3.
+select battle
+from outcomes
+where ship in (select name from ships where class = 'Kongo');
+
+-- 3.4. Напишете заявка, която извежда имената на корабите, чиито брой 
+-- оръдия е най-голям в сравнение с корабите със същия калибър оръдия (bore).
+select name
+from ships s
+join classes c on s.class = c.class
+where numguns >= all (select numguns
+				from classes c2
+				where c2.bore = c.bore);
+
+
+
+Упражнение 4
+-- 1.1.
+select title, year, name, address
+from movie
+join studio on studioname = name
+where length > 120;
+
+-- 1.2.
+select distinct studioname, starname
+from movie
+join starsin on title = movietitle and year = movieyear
+order by studioname;
+
+-- 1.6. Всички актьори, които не са играли във филми
+-- (т.е. нямаме информация в кои филми са играли)
+select name
+from moviestar
+left join starsin on name = starname
+where starname is null;
+-- OR:
+select name
+from moviestar
+where name not in (select starname from starsin);
+
+-- 2.1.
+use pc;
+
+select maker, p.model, type
+from product p
+left join  (select model from pc
+			union all
+			select model from laptop
+			union all
+			select model from printer) t
+	on p.model = t.model
+where t.model is null;
+-- OR:
+select maker, model, type
+from product
+where model not in (select model from pc)
+	and model not in (select model from laptop)
+	and model not in (select model from printer);
+
+use ships;
+-- 3.2.
+select distinct ship
+from outcomes
+join battles on battle=name
+where year(date) = 1942;
+
+
+
+-- Общи задачи
+
+use movies;
+-- Да се изведат заглавията и годините на всички филми, чието заглавие
+-- съдържа едновременно като поднизове "the" и "w" (не непременно в този ред).
+-- Резултатът да бъде сортиран по година (първо най-новите), а филми от 
+-- една и съща година да бъдат подредени по азбучен ред.
+select title, year
+from movie
+where title like '%the%' and title like '%w%'
+order by year desc, title;
+
+use ships;
+-- Държавите, които имат класове с различен калибър (bore)
+-- (напр. САЩ имат клас с bore=14 и класове с bore=16,
+-- докато Великобритания има само класове с 15)
+select distinct c1.country
+from classes c1
+join classes c2 on c1.country = c2.country
+where c1.bore <> c2.bore; 
+-- оптимизация: c1.bore < c2.bore - ще улесни работата на distinct по-горе
+
+use pc;
+-- Компютрите, които са по-евтини от всеки лаптоп
+-- и принтер на същия производител
+select pc.*
+from pc
+join product p on pc.model = p.model
+where price < all (select price
+					from laptop
+					join product p1 on laptop.model=p1.model
+					where p1.maker = p.maker)
+	and price < all (select price
+					from printer
+					join product p1 on printer.model=p1.model
+					where p1.maker = p.maker);
+-- ако подзаявката върне празен списък, условието
+-- price < all (...) ще бъде true
+
+use ships;
+-- Имената на всички кораби, за които едновременно са изпълнени следните 
+-- условия: 
+-- (1) участвали са в поне една битка и 
+-- (2) имената им (на корабите) започват с C или K.
+select distinct ship 
+from outcomes
+where ship like 'C%' or ship like 'K%';
+
+-- Името, държавата и калибъра (bore) на всички класове кораби с 6, 8 или 10 
+-- оръдия. Калибърът да се изведе в сантиметри (1 инч е приблизително 2.54 см).
+select class, country, bore * 2.54 as bore_cm
+from classes
+where numguns in (6, 8, 10);
+
+-- (От държавен изпит)
+-- Имената на класовете, за които няма кораб, пуснат на вода (launched) след
+-- 1921 г. Ако за класа няма пуснат никакъв кораб, той също трябва да излезе 
+-- в резултата.
+
+-- грешно:
+select distinct class
+from ships
+where launched <= 1921;
+
+-- вярно:
+select class
+from classes
+where class not in (select class from ships where launched > 1921);
+
+-- вярно:
+SELECT c.class 
+FROM classes c 
+WHERE NOT EXISTS (SELECT 1 
+				FROM ships t 
+				WHERE t.class=c.class 
+					AND t.launched > 1921);
+
+-- вярно:
+select classes.class
+from classes
+left join ships on classes.class = ships.class and launched > 1921
+where name is null;
+
+
+Упражнение 5
+
+use movies;
+
+SELECT AVG(netWorth)
+FROM MovieExec;
+
+SELECT COUNT(*)
+FROM StarsIn;
+
+SELECT COUNT(DISTINCT starName)
+FROM StarsIn;
+
+select count(*), count(distinct starName)
+from StarsIn;
+
+
+SELECT studioName, SUM(length)
+FROM Movie
+GROUP BY studioName;
+
+-- ако нямаше GROUP BY, можеше така:
+select distinct studioname, (select sum(length) 
+							 from movie
+							 where studioname = m.studioname)
+from movie m;
+
+-- най-дългият филм (ако са повече от един, да се 
+-- изведат всички):
+-- грешно:
+select *
+from movie
+where length = max(length);
+-- вярно:
+select *
+from movie
+where length = (select max(length) from movie);
+
+-- Групиране по израз:
+-- За всяка година да се изведе колко филмови
+-- звезди са родени
+select year(birthdate), count(*)
+from moviestar
+group by year(birthdate);
+
+-- доказателство за реда, в който се изпълняват клаузите:
+-- следната заявка е грешна:
+select title as movietitle
+from movie
+where movietitle like 'Star %';
+-- movietitle не е дефинирано
+
+-- за всяка филмова звезда - броят на филмите, в които
+-- се е снимала
+-- ако за дадена звезда не знаем какви филми има,
+-- за нея да се изведе 0
+select name, count(starname) as moviesCount
+from moviestar
+left join starsin on name = starname
+group by name;
+
+-- още за null:
+select *
+from movie
+where length = (select max(length) from movie);
+-- горното намира най-дългите филми измежду тези,
+-- за които дължината е известна
+select *
+from movie
+where length >= all (select length from movie);
+-- горното не връща нищо, ако има филми с неизвестна
+-- дължина
+
+-- не може avg(count( и др. подобни, да не се смесват!
+-- пример: да се изведе средният брой филми, в
+-- които са се снимали актьорите
+-- грешно:
+-- select avg(count(...)) from ...
+-- вярно:
+select avg(moviescount)
+-- или по-добре: select avg(convert(real, moviescount))
+from (select count(movietitle) as moviescount
+	from moviestar
+	left join starsin on name = starname
+	group by name) stat;
+
+-- having може само ако има преди него group by
+
+-- често срещана грешка:
+select *
+from movie
+where length = max(select length from movie);
+
+-------------------------
+
+use pc;
+-- 1.1.
+select avg(speed)
+from pc;
+
+-- 1.2.
+select maker, avg(screen)
+from laptop
+join product on laptop.model = product.model
+group by maker;
+
+-- 1.3.
+select avg(speed)
+from laptop
+where price > 1000;
+
+-- 1.5.
+select avg(price)
+from
+(
+	select price
+	from product p join pc
+	on p.model=pc.model 
+	where maker='B'
+
+	union all
+
+	select price
+	from product p join laptop l
+	on p.model=l.model 
+	where maker='B'
+) AllPrices;
+
+-- 1.6.
+select speed, avg(price)
+from pc
+group by speed;
+
+-- 1.7.
+select maker
+from product
+where type='PC'
+group by maker
+having count(*) >= 3;
+
+-- 1.8.
+select distinct maker
+from product
+join pc on product.model = pc.model
+where price = (select max(price) from pc);
+
+-- 1.9.
+select speed, avg(price)
+from pc
+where speed > 800
+group by speed;
+-- тук може и с having, но няма да е по-яко
+
+-- 1.10.
+select avg(hd)
+from pc 
+join product p on p.model=pc.model
+where maker in
+	(select maker
+	from product
+	where type='Printer');
+
+-- 1.11.
+select screen, max(price) - min(price)
+from laptop
+group by screen;
+
+use ships;
+-- 2.1.
+select count(*)
+from classes;
+
+-- 2.2.
+select avg(numguns)
+from classes c
+join ships s on c.class = s.class;
+
+-- 2.3.
+select class, min(launched) as FirstYear, 
+			max(launched) as LastYear
+from ships
+group by class;
+
+-- 2.4. (не се включват класове без
+-- потънали кораби)
+select class, count(*)
+from ships s 
+join outcomes o on s.name=o.ship
+where o.result='sunk'
+group by class;
+
+-- 2.5.
+select class, count (name)
+from ships s 
+join outcomes o on s.name=o.ship
+where result='sunk' and class in 
+		(select class
+		from ships
+		group by class
+		having count(*)>4)
+group by class;
+
+-------------------------
+-- Задачи - 2
+
+use movies;
+-- 1. За всеки актьор/актриса изведете броя на 
+-- различните студиа, с които са записвали филми.
+select starname, count(distinct studioname)
+from starsin 
+join movie on movietitle=title and movieyear=year
+group by starname;
+
+-- 2. За всеки актьор/актриса изведете броя на 
+-- различните студиа, с които са записвали филми, 
+-- включително и за тези, за които нямаме информация в 
+-- кои филми са играли.
+select name, count(distinct studioname)
+from movie
+join starsin on movietitle=title and movieyear=year
+right join moviestar on name=starname 
+group by name;
+
+-- OR:
+select name, count(distinct studioname)
+from moviestar
+left join starsin on name=starname
+left join movie on movietitle=title and movieyear=year
+group by name;
+
+-- 3. Изведете имената на актьорите, участвали в поне 
+-- три филма след 1990 г.
+select starname
+from starsin
+where movieyear>1990
+group by starname
+having count(*)>=3;
+
+use pc;
+-- 4. Да се изведат различните модели компютри, 
+-- подредени по цена на най-скъпия конкретен компютър 
+-- от даден модел.
+select model
+from pc
+group by model
+order by max(price);
+
+
+Упражнение 6
+use ships;
+-- 5. Изведете броя на потъналите американски кораби за 
+-- всяка проведена битка с поне един потънал американски
+-- кораб.
+select battle, count(*)
+from outcomes
+join ships on ship = name
+join classes on ships.class = classes.class
+where result = 'sunk' and country = 'USA'
+group by battle;
+
+-- having count(*) >= 1 е абсолютно безсмислено - винаги е true
+
+-- 6. Битките, в които са участвали поне 3 кораба на 
+-- една и съща страна.
+select distinct battle
+from outcomes
+join ships on ship = name
+join classes on ships.class = classes.class
+group by battle, country
+having count(*) >= 3;
+-- distinct, понеже в една битка може да има примерно 4 кораба от САЩ и 4 кораба от Япония
+
+-- За всеки клас да се изведе името му, държавата и първата година, 
+-- в която е пуснат кораб от този клас
+select c.class, country, min(launched) as FirstYear
+from classes c
+join ships s on c.class = s.class
+group by c.class, country;
+-- или:
+-- select c.class, min(country) as country, min(launched) as firstYear
+-- from classes c
+-- join ships on c.class = ships.class
+-- group by c.class;
+
+-- За всеки клас с кораби - името на класа, името на произволен кораб и брой кораби
+select class, min(name), count(*)
+from ships
+group by class;
+
+-- 7. Имената на класовете, за които няма кораб, пуснат
+-- на вода след 1921 г., но имат пуснат поне един кораб.
+SELECT class 
+FROM ships
+GROUP BY class 
+HAVING MAX(launched) <= 1921;
+
+-- 8. За всеки кораб да се изведе броят на битките, в които е бил увреден.
+-- Ако корабът не е участвал в битки или пък никога не е бил
+-- увреждан, в резултата да се вписва 0.
+
+-- грешно (за справка - упражнение 4):
+select name, count(battle)
+from ships
+left join outcomes on name = ship
+where result = 'damaged' or result is null
+group by name;
+-- губим корабите, които са участвали в битки, но не са били damaged
+
+-- вярно:
+select name, count(battle)
+from ships
+left join outcomes on name = ship and result = 'damaged'
+group by name;
+
+-- или (вярно):
+
+... left join (select * from outcomes where result = 'damaged') d ...
+
+-- или (дава възможности за много сложни заявки):
+
+select name, (select count(*)
+	from outcomes o
+	where result = 'damaged'
+		and o.ship = s.name)
+from ships s;
+
+-- 8.1. За всяка държава да се изведе броят на корабите и броят на 
+-- потъналите кораби.
+-- Всяка от бройките може да бъде и нула.
+select country, count(ships.name), count(outcomes.ship)
+from classes
+left join ships on classes.class = ships.class
+left join outcomes on name = ship and result = 'sunk'
+group by country;
+-- понеже един кораб потъва най-много веднъж, няма нужда от count(distinct name)
+
+-- 8.2. За всяка държава да се изведе броят на повредените кораби и броят на потъналите кораби.
+-- Всяка от бройките може да бъде и нула.
+select country, count(distinct damaged.ship) as damaged, count(distinct sunk.ship) as sunk
+from classes
+left join ships on classes.class = ships.class
+left join outcomes damaged on name = damaged.ship and damaged.result = 'damaged'
+left join outcomes sunk on name = sunk.ship and sunk.result = 'sunk'
+group by country;
+-- distinct е нужен, понеже заради декартовите произведения при join-овете един запис може да се дублира...
+-- напр. ако кораб е бил два пъти damaged и веднъж sunk, ще има два реда в sunk.*, в които ще се споменава същият кораб
+
+-- по-добре:
+select country, (select count(distinct name)
+				from classes
+				join ships on classes.class = ships.class
+				join outcomes on ship = name
+				where result = 'damaged'
+					and country = c.country) as damaged,
+				(select count(*)
+				from classes
+				join ships on classes.class = ships.class
+				join outcomes on ship = name
+				where result = 'sunk'
+					and country = c.country) as sunk
+from classes c
+group by country;
+
+-- най-добре - с CASE (не е нужно да се учи за контролното)
+
+-- 9. Намерете за всеки клас с поне 3 кораба броя на корабите от този клас, 
+-- които са с резултат ok.
+select class, count(distinct ship) -- повторения има, ако даден кораб е бил ok в няколко битки
+from ships
+left join outcomes on name = ship and result = 'ok'
+group by class
+having count(distinct name) >= 3; -- повторения има, ако даден кораб е бил ok в няколко битки
+
+use movies;
+-- За всяка филмова звезда да се изведе името, рождената дата и с кое
+-- студио е записвала най-много филми. (Ако има две студиа с еднакъв 
+-- брой филми, да се изведе кое да е от тях)
+select name, birthdate, (select top 1 studioname
+						 from starsin
+						 join movie on movietitle = title and movieyear = year
+						 where starname = name
+						 group by studioname
+						 order by count(*) desc) studioName
+from moviestar;
+
+use pc;
+-- Намерете за всички производители на поне 2 лазерни
+-- принтера броя на произвежданите от тях PC-та (конкретни конфигурации), евентуално 0.
+select maker, count(pc.code)
+from product p
+left join pc on p.model = pc.model
+where maker in (select maker
+				from product
+				join printer on product.model = printer.model
+				where printer.type = 'Laser' -- в Product също има колона type
+				group by maker
+				having count(*) >= 2)
+group by maker;
+-- или в having:
+select maker, count(pc.code)
+from product p
+left join pc on p.model = pc.model
+group by maker
+having maker in (select maker
+				from product
+				join printer on product.model = printer.model
+				where printer.type = 'Laser' -- в Product също има колона type
+				group by maker
+				having count(*) >= 2);
+-- OR
+select maker, (select count(*)
+			from product p1 
+			join pc on p1.model = pc.model
+				and p1.maker = p.maker)
+from product p
+join printer on p.model = printer.model
+where printer.type = 'Laser'
+group by maker
+having count(*) >= 2;
+
+-- да се изведат всички производители,
+-- за които средната цена на произведените компютри
+-- е по-ниска от средната цена на техните лаптопи:
+select maker
+from product p
+join pc on p.model = pc.model
+group by maker
+having avg(price) < (select avg(price)
+					 from product
+					 join laptop on product.model = laptop.model
+					 where maker = p.maker); -- корелативна подзаявка в having
+
+-- Един модел компютри може да се предлага в няколко конфигурации 
+-- с евентуално различна цена. Да се изведат тези модели компютри,
+-- чиято средна цена (на различните му конфигурации) е по-ниска
+-- от най-евтиния лаптоп, произвеждан от същия производител.
+select pc.model
+from pc
+join product p on pc.model = p.model
+group by pc.model, p.maker -- трябва да групираме и по maker, понеже 
+		-- го подаваме на корелативна подзаявка в having
+having avg(price) < (select min(price) 
+					from laptop
+					join product t 
+					on laptop.model = t.model
+					where t.maker = p.maker);
+-- или:
+select pc.model
+from pc join product p on pc.model=p.model
+group by pc.model
+having avg(price) < (select min(price) 
+		from laptop
+		join product t 
+		on laptop.model = t.model
+		where t.maker = min(p.maker)); -- този min не се изпълнява в where, 
+		-- а в having и подзаявката получава стойността, върната от min
+
+
+
+
+-----------
+
+-- допълнителен материал, не е задължителен за контролното:
+
+-- CASE - първи начин:
+
+-- За всеки лаптоп да се изведе моделът на лаптопа, цената и да се 
+-- отбележи дали лаптопът има ниска(<900), средна или висока цена(>1100).
+SELECT MODEL, PRICE, CASE
+					WHEN PRICE < 900 THEN 'LOW'
+					WHEN PRICE > 1100 THEN 'HIGH'
+					ELSE 'AVERAGE'
+					END AS PRICE_RANK
+FROM LAPTOP;
+
+SELECT CASE
+		WHEN PRICE < 900 THEN 'LOW'
+		WHEN PRICE > 1100 THEN 'HIGH'
+		ELSE 'AVERAGE'
+		END AS PRICE_RANK, 
+	COUNT(*) AS NUM_LAPTOPS
+FROM LAPTOP
+GROUP BY CASE
+		WHEN PRICE < 900 THEN 'LOW'
+		WHEN PRICE > 1100 THEN 'HIGH'
+		ELSE 'AVERAGE'
+		END;
+
+
+use movies;
+-- CASE - втори начин:
+select name,
+	CASE gender
+		WHEN 'M' THEN 'Male'
+		WHEN 'F' THEN 'Female'
+	END as gender
+from moviestar;
+
+use ships;
+-- За всяка битка да се изведе името на битката, годината на 
+-- битката и броят на потъналите кораби, броят на повредените
+-- кораби и броят на корабите без промяна.
+
+-- не е точно във формaта, в който искаме:
+select battle, date, result, count(*)
+from outcomes 
+join battles on battle=name
+group by battle, date, result
+order by battle;
+
+-- Да се изведе същият резултат както в предната заявка, но
+-- всяка битка да се появява точно веднъж.
+select battle, date,
+	sum(case result
+		when 'sunk' then 1
+		else 0		end) as num_sunk,
+	sum(case result
+		when 'damaged' then 1
+		else 0		end) as num_damaged,
+	sum(case result
+		when 'ok' then 1
+		else 0		end) as num_ok
+from outcomes 
+join battles on battle=name
+group by battle, date;
+
+
+-- (*) Намерете имената на битките, в които са участвали поне 3 кораба с 
+-- под 9 оръдия и от тях поне два са с резултат ‘ok’
+SELECT battle 
+FROM outcomes o 
+join ships s on o.ship=s.name
+join classes c on s.class=c.class
+WHERE c.numGuns<9 
+GROUP BY battle
+HAVING count(*)>=3 AND sum(CASE result WHEN 'ok' THEN 1 ELSE 0 END)>=2;
+
+
+use movies;
+
+select case 
+	when year(birthdate)<1960 then 'older than 1960'
+	when year(birthdate)>=1960 and year(birthdate)<=1969
+		then '60s'
+	when year(birthdate)>=1970 and year(birthdate)<=1979
+		then '70s'
+	else 'younger than 1980'
+	end,
+	count(name)
+from moviestar
+group by case 
+	when year(birthdate)<1960 then 'older than 1960'
+	when year(birthdate)>=1960 and year(birthdate)<=1969
+		then '60s'
+	when year(birthdate)>=1970 and year(birthdate)<=1979
+		then '70s'
+	else 'younger than 1980'
+	end;
+
+
+-- още задачи:
+
+use pc;
+-- Всички модели компютри, за които разликата в размера на
+-- най-големия и най-малкия харддиск е поне 20 GB.
+
+select model from pc
+group by model
+having max(hd)-min(hd)>=20;
+
+use ships;
+-- Да се изведат имената на корабите, които са участвали в битки в
+-- продължение поне на две години.
+select ship
+from battles
+join outcomes on name=battle
+group by ship
+having year(max(date))-year(min(date))>=1;
+
+-- !не е нужно при join да има връзка между 2-та атрибута
+-- За всяка година, в която е проведена битка, да се изведе броят на
+-- корабите, пуснати на вода през тази година
+select year(date), count(distinct ships.name)
+from battles
+left join ships on year(date)=launched
+group by year(date);
+
+-- за всеки потънал кораб колко години са минали от пускането му на вода до потъването (year(date)-launched)
+
+-- за всеки клас - баланс между здрави и потънали кораби (например 5 ok, 10 damaged, 2 sunk - 5-2=3)
+-- Забележка: ако кораб в 2 битки е бил ok, а в трета е потънал, по-лесно е да го броим като +1, а не -1
+select class, 
+	(select count(*)
+	from ships s
+	join outcomes o on s.name = o.ship
+	where s.class = c1.class
+	and o.result = 'ok')
+	- (select count(*)
+	from ships s
+	join outcomes o on s.name = o.ship
+	where s.class = c1.class
+	and o.result = 'sunk')
+from classes c1;
+
+-- допълнителен материал, не е задължителен за контролното: Common Table Expressions
+use pc;
+with prices_cte
+as ((select model, price
+       from laptop)
+      union
+      (select model, price
+       from pc)
+      union
+      (select model, price
+       from printer)
+)
+select model 
+from prices_cte
+where price=(select max(price) from prices_cte);
+
+
