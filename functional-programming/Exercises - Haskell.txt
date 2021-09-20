@@ -1,0 +1,1855 @@
+UPR 1 HS
+
+import Data.Char(ord, isDigit, isUpper, toUpper)
+import Data.List(group)
+
+{- Списъци в Haskell - работят по подобен начин като тези в Racket, но синтаксиса е малко по-различен, и благодарение на pattern matching-а на практика ще работим с тях по малко по-различен начин
+    []   - празен списък
+    x:xs - операторът ':' конструира списък с глава x и опашка xs, като (cons x xs) в Racket
+    head (x:xs) - връща главата x, подобно на car/first в Racket
+    tail (x:xs) - връща опашката xs, подобно на cdr/rest в Racket
+
+    [1,2,3] - списък с елементи 1, 2 и 3, еквивалентно на 1:(2:(3:[]))
+
+В Haskell обаче списъците са хомогенни, за разлика от тези в Racket (които поради динамичното типизиране на езика можеха да съдържат различни типове)
+    [а]     - списък от елементи от типа а
+    [[a]]   - списък от списъци с елементи от типа а
+    [[[a]]] - списък от списъци от списъци с елементи от типа а
+    [[[[a]]]] и т.н. -}
+
+-- Да напишем функция sum, която сумира елементите на списък:
+-- 1во - както бихме го написали на Racket:
+sum' :: [Int] -> Int
+sum' xs = if null xs then 0 else head xs + sum' (tail xs)
+-- Но в Haskell имаме pattern matching:
+sum'' :: [Int] -> Int
+sum'' []     = 0
+sum'' (x:xs) = x + sum'' xs
+-- pattern matching-а ни позволява все едно да "декомпозираме" стойността до нейните съставни - в случая на списък, до главата и опашката му. Така може да ги достъпим директно,
+-- без да се налага да извикваме head и tail. Като цяло при работа със списъци ще използваме този подход, може да забравите за постоянното писане на car и cdr от Racket.
+-- Тук много рядко ще се налага експлицитно да викаме head и tail (може например при някакви map-ове да се наложи).
+
+-- Задача 0. Примерни реализации на някои функции върху списъци.
+-- пишем имената с ' накрая, тъй като функциите вече съществуват и стават конфликти при повторно ползване на имената им
+
+-- проверка дали списък е празен
+null' :: [a] -> Bool
+null' [] = True
+null' _  = False
+-- 'a' е произволен тип - може да бъде Int, Float, Char, и т.н.
+-- Такива произволни типове се пишат с малки букви, потенциално може да имат и по-детайлно име, но като конвенция се пишат с a, b, и т.н.
+-- Ще ги ползваме често при списъци, тъй като много от функциите няма да зависят от конкретния тип на елементите на списъка.
+
+-- взимане на глава на списък
+head' :: [a] -> a
+head' (x:_) = x -- тъй като опашката тук не ни интересува, я заменяме с '_'
+
+-- взимане на опашка на списък
+tail' :: [a] -> [a]
+tail' (_:xs) = xs -- тъй като главата тук не ни интересува, я заменяме с '_'
+
+-- дължина на списък
+length' :: [a] -> Integer
+length' []     = 0
+length' (_:xs) = 1 + length' xs
+
+-- проверка дали число е елемент на списък от числа
+elem' :: Int -> [Int] -> Bool
+elem' _ []     = False
+elem' y (x:xs) = x == y || elem' y xs
+-- Вграденият elem работи и за други типове освен цели числа, но декларацията му не е просто elem :: a -> [a] -> Bool, тъй като не всеки тип 'a' ще има дефиниран оператор (==). По-нататък ще разгледаме този детайл.
+
+-- функции от по-висок ред
+map' :: (a -> b) -> [a] -> [b]
+map' _ []     = []
+map' f (x:xs) = f x : map' f xs
+
+filter' :: (a -> Bool) -> [a] -> [a]
+filter' _ []     = []
+filter' p (x:xs) = if p x then x : filter' p xs else filter' p xs
+
+foldr' :: (a -> b -> b) -> b -> [a] -> b
+foldr' _ v []     = v
+foldr' f v (x:xs) = f x (foldr' f v xs)
+
+-- reverse ползвайки fold
+reverse' :: [a] -> [a]
+reverse' lst = foldr (\x xs -> xs ++ [x]) [] lst  
+
+
+-- Задача 1. Да се дефинира функция isAscending :: Integer -> Bool, която проверява дали цифрите на число са във възходящ ред. Функцията да получава число, но да работи със списък от цифрите му.
+isAscending :: Integer -> Bool
+isAscending num = isSorted $ digits num
+    where
+        digits x = if x < 10 then [x] else digits (x `div` 10) ++ [x `mod` 10]
+  
+        isSorted []         = True
+        isSorted (x:[])     = True -- друг вариант за pattern за едноелементен списък е [x]
+        isSorted (x1:x2:xs) = x1 <= x2 && isSorted (x2:xs) -- с pattern patching-а е много по-лесно да вземем първите няколко елемента - иначе щяхме да имаме head, head на tail, и т.н. 
+        -- Когато ползваме образец като последния, в който предполагаме че списъкът има поне 2 елемента, най-вероятно ще се наложи първо да сме разгледали случая, 
+        -- когато списъкът има само 1 елемент, за да се подсигурим че наистина има втори елемент който да вземем.
+
+-- Задача 2. Нека as = [a1, a2 … , ak] и bs = [b1, b2 … , bk] са непразни списъци с еднакъв брой числа. Да се дефинира предикат isImage :: [Int] -> [Int] -> Bool, който да връща „истина“ точно 
+-- когато съществува такова число x, че ai = x + bi за всяко i = 1,..., k.
+
+-- 1ви вариант - в стил подобно на Racket
+isImage :: [Int] -> [Int] -> Bool
+isImage as bs = as == map (+x) bs
+    where x = head as - head bs
+
+-- 2ри вариант - ползвайки pattern matching
+isImage' :: [Int] -> [Int] -> Bool
+isImage' (a:as) (b:bs) = (a:as) == map (+ (a - b)) (b:bs)
+
+-- 3ти вариант - ползвайки синоними за да избегнем повторенията
+isImage'' :: [Int] -> [Int] -> Bool
+isImage'' as@(a:_) bs@(b:_) = as == map (+ (a - b)) bs
+-- @ е начин за създаване на синоними, т.е. тук as и (а:_) са две имена на една и съша стойност - списък с първи елемент а и произволна опашка.
+-- Както споменах по-горе, чрез pattern matching-а все едно декомпозираме стойността, но понякога може да искаме хем да се обръщаме към съставните ѝ части, хем към цялата стойност,
+-- например в тази задача искаме да може да вземем главите на списъците за да сметнем x, но искаме и самите списъци, за да приложим map и да сравним за равенство.
+-- В такива случаи са удобни синонимите - чрез тях може да имаме както променлива, с която да взимаме цялата стойност, така и променливи за всяка нейна съставна част.
+
+-- 4ти вариант - с all и zip
+isImage''' :: [Int] -> [Int] -> Bool
+isImage''' (a1:as) (b1:bs) = all (\ (ai, bi) -> ai == x + bi) (zip as bs)
+    where x = a1 - b1
+ 
+-- Задача 3. Да се дефинира функция pack :: [Int] -> [[Int]], която получава списък от цели числа, и връща списък от списъци, в който поредиците от последователни елементи са "опаковани" в отделни списъци.
+pack :: [Int] -> [[Int]]
+pack []     = []
+pack (x:xs) = (x : takeWhile (==x) xs) : pack (dropWhile (==x) xs)
+-- takeWhile е функция, която освен списък получава и предикат, и взима елементи от списъка докато не стигне до такъв който не изпълнява предиката
+-- dropWhile пък маха елементи докато не стигне до такъв
+
+{- List Comprehension - конструиране на списък чрез определяне на неговия обхват, подобно на range в Racket, но не е отделна функция
+   [a..b]    - конструира списък [a, a+1, a+2,  ..., b]
+   [a,h,..b] - конструира списък [a, a+h, a+2h, ..., b]
+
+   [x | x <- xs, predicate] - конструира списък от тези елементи на xs, за които predicate e верен, подобно на filter
+   [x | x <- xs, predicate1, predicate2, ..., predicateN] - конструира списък от тези елементи на xs, за които са верни всичките предикати. Доста по-удобно от N вложени filter-а.
+
+   [f x | x <- xs] - ако f е функция на един аргумент ще получим списък, в който към всеки елемент е приложена f (подобно на map)
+
+   може да комбинираме двете горни функционалности:
+   [f x | x <- xs, predicate x] - като map върху filter-нат списък
+
+   [(x,y) | x <- xs, y <- ys] - ще конструира списък от двойки с първи елемент от xs и втори от ys
+                              - взимаме 1ви елемент от xs -> изчерпваме ys -> взимаме 2ри от xs -> изчерпваме ys -> ...
+                              - всъщност ще се получи нещо като декартово произведение, ако мислим за списъците като множества -}
+
+-- Задачи за list comprehension                            
+-- Задача 4. Да се дефинира функция divisors :: Int -> [Int], която генерира списък от всички (собствени) делители на дадено число
+divisors :: Int -> [Int]
+divisors n = [k | k <- [1 .. n `div` 2], n `mod` k == 0]
+
+-- Задача 5. Да се дефинира функция prodSumDiv :: Int -> Int -> Int -> Int, която получава цели числа a, b и k и намира произведението на числата в [a,b], сумата от делителите на които е кратна на k.
+prodSumDiv :: Int -> Int -> Int -> Int
+prodSumDiv a b k = product [x | x <- [a..b], sum (divisors x) `mod` k == 0]
+
+-- Задача 6. Да се дефинира функция removeNb :: Int -> [(Int, Int)], която приема естествено число n и връща списък от двойки естествени числа (a, b) – такива, че:
+-- 1. a и b са по-малки от n,
+-- 2. тяхното произведение е равно на сумата от числата от 1 до n без a и b.
+removeNb :: Int -> [(Int, Int)]
+removeNb n = [(a, b) | a <- [1..n],
+                       b <- [1..n],
+                       a * b == sum [x | x <- [1..n], x /= a, x /= b]]
+
+
+-- Низовете в Haskell са просто списъци от Char-ове (type String = [Char]).
+-- С тях се работи по същия начин както се работи със списъци: можем да ги обхождаме с рекурсия, да ги map-ваме, да ги генерираме с list comprehension и т.н.
+
+-- Задача 7. Да се дефинира функция digits :: String -> String, която получава низ и намира цифрите в него.
+digits :: String -> String
+digits str = [ch | ch <- str, isDigit ch] -- isDigit е вградена функция от библиотеката Data.Char
+ 
+-- Задача 8. Да се дефинира функция digitsSum :: String -> Int, която намира сумата на цифрите в даден низ.
+digitsSum :: String -> Int
+digitsSum "" = 0 -- "" тук е празен низ, което е еквивалентно на празен списък. Може да ползваме и [], но с "" става по-ясно че работим конкретно със низове
+digitsSum (c:cs)
+    | isDigit c = ord c - ord '0' + digitsSum cs -- ord връща ASCII кода на цифрата, но за да получим самата цифра изваждаме ASCII кода на 0 (например за 5: ord '5' - ord '0' = 53 - 48 = 5)
+    | otherwise = digitsSum cs
+
+-- 2ри вариант - ползваме миналата задача
+digitsSum' :: String -> Int
+digitsSum' cs = sum [ord c - ord '0' | c <- digits cs]
+
+-- Задача 9. Да се дефинира функция capitalize :: String -> String, която прави всички малки букви в даден String главни.
+capitalize :: String -> String
+capitalize cs = map toUpper cs -- toUpper е вградена функция от библиотеката Data.Char, която конвертира малка буква към главна (и не променя главни букви)
+
+-- Задача 10. Да се дефинира функция isCapitalized :: String -> Bool, която проверява дали всички букви в даден String са главни.
+isCapitalized :: String -> Bool
+isCapitalized ""     = True
+isCapitalized (c:cs) = isUpper c && isCapitalized cs
+
+-- 2ри вариант - с all
+isCapitalized' :: String -> Bool
+isCapitalized' str = all isUpper str
+
+-- Задача 11. Да се дефинира функция nOrMoreVowels :: [String] -> Int -> [String], която получава списък от думи и число n и връща само думите с поне n гласни.
+isVowel :: Char -> Bool
+isVowel c = elem c "aeiouy"
+
+countVowels :: String -> Int
+--countVowels word = length $ filter isVowel word    -- 1ви вариант
+countVowels word = length [c | c <- word, isVowel c] -- 2ри вариант
+
+nOrMoreVowels :: [String] -> Int -> [String]
+--nOrMoreVowels words n = filter (\word -> countVowels word >= n) words -- 1ви вариант
+nOrMoreVowels words n = [word | word <- words, countVowels word >= n]   -- 2ри вариант
+
+-- Задача 12. Да се дефинира функция isPrefixOf :: String -> String -> Bool, която проверява дали първия ѝ аргумент е префикс на втория.
+isPrefixOf' :: String -> String -> Bool
+isPrefixOf' [] _          = True  -- празният низ е префикс на всичко
+isPrefixOf' _  []         = False -- няма как непразен низ да е префикс на празен низ.
+isPrefixOf' (x:xs) (y:ys) = (x == y) && isPrefixOf' xs ys
+
+-- Задача 13. Да се дефинира функция isInfixOf :: String -> String -> Bool, която проверява дали първия ѝ аргумент е инфикс на втория.
+-- 1ви вариант
+isInfixOf' :: String -> String -> Bool
+isInfixOf' [] _  = True
+isInfixOf' _  [] = False
+isInfixOf' xs ys = isPrefixOf' xs ys || isInfixOf' xs (tail ys)
+
+-- 2ри вариант
+-- първо - функция, която генерира всички опашки на даден списък
+tails' :: [a] -> [[a]]
+tails' []        = [[]] -- ако върнем директно [], то празният списък няма да участва като опашка
+tails' ys@(_:xs) = ys : tails' xs
+-- второ - проверяваме дали първият низ е префикс на някоя от опашките на втория низ. 
+-- Това дефакто правим и в първия вариант, но там обхождаме опашките една по една, а тук ползваме вградената функция any
+isInfixOf'' :: String -> String -> Bool
+isInfixOf'' xs ys = any (isPrefixOf' xs) (tails' ys)
+-- isPrefixOf, isInfixOf и tails всъщност са вградени функции от библиотеката Data.List. Библиотечната реализация на isInfixOf е подобна на втория вариант тук.
+
+-- Задача 14. Да се дефинира функция longestSubstring :: String -> Int, която намира дължината на най-дългия подниз в даден низ, състоящ се от еднакви символи.
+longestSubstring :: String -> Int
+longestSubstring str = maximum [length substring | substring <- group str]
+-- group е вградена функция (от Data.List), която разделя списък на списъци, всеки от които има само еднакви елементи. Например group "Mississippi" -> ["M","i","ss","i","ss","i","pp","i"].
+-- Действието е подобно на pack който дефинирахме по-горе, но не е ограничено до списъци от цели числа, и имплементацията е по-различна.
+
+-- Задача 15. Да се дефинира функция tighten, която "сгъстява" низ от думи, като премахва интервалите в началото и в края на низа, а между всеки две думи оставя по един интервал. 
+-- Ако низът не съдържа думи, резултатът е празен низ.
+tighten :: String -> String
+tighten ""             = ""
+tighten (' ':cs)       = tighten cs -- премахваме интервали в началото
+tighten (c:' ':' ':cs) = tighten (c:' ':cs) -- премахваме повторение на интервали между думи, докато не остане само един
+tighten (c:' ':c':cs)  = c : ' ' : tighten (c':cs) -- Тъй като вече сме преминали през горния ред и сме продължили надолу, можем да сме сигурни, че c' не е интервал, т.е. е буква. 
+                                                   -- Значи продължаваме "сгъстяването" в остатъка от низа
+tighten (c:cs)         = c : tighten cs -- Тъй като сме минали през всичките горни редове и сме стигнали до тук, можем да сме сигурни, че сме "вътре" в дума, т.е. c е буква и след него следва още една буква.
+                                        -- Значи взимаме първата буква и обработваме остатъка.
+
+-- 2ри вариант
+tighten' :: String -> String
+tighten' = unwords . words
+
+
+
+main :: IO()
+main = do
+        -- Конструиране на списъци
+    -- print [1,2,3]        -- -> [1,2,3]
+    -- print $ 1:[]         -- -> [1]
+    -- print $ 1:[2,3]      -- -> [1,2,3]
+    -- print $ 1:(2:(3:[])) -- -> [1,2,3]
+          -- конкатенацията на списъци (append в Racket) тук е инфиксен оператор: (++)
+    -- print $ [1,2,3] ++ [4,5,6] -- -> [1,2,3,4,5,6]
+  
+    -- разгледайте файла "Някои функции за работа със списъци"
+    
+    -- print $ map (\x -> x + 3) [1,2,3] -- -> [4,5,6]
+    -- -- вместо ламбда може да ползваме операторно сечение
+    -- print $ map (+3) [1,2,3]          -- -> [4,5,6]
+
+    -- print $ filter odd [1,2,3,4]  -- -> [1,3]
+    -- print $ filter (<3) [1,2,3,4] -- -> [1,2]
+
+    -- print $ foldr (+) 0 [1,2,3]     -- -> 6
+
+    -- print $ all odd [1,3,5]  -- -> True
+    -- print $ any even [1,2,3] -- -> True
+
+        -- Задачи
+    -- print $ isAscending 234 -- -> True
+    -- print $ isAscending 243 -- -> False
+    
+    -- print $ isImage [1,2,3] [4,5,6] -- -> True
+    -- print $ isImage [1,2,3] [4,5,7] -- -> False
+      
+    -- print $ takeWhile even [2,4,6,1,3,5] -- -> [2,4,6] (спираме при първия нечетен елемент)
+    -- print $ dropWhile even [2,4,6,1,3,5] -- -> [1,3,5]
+    -- print $ pack [1,1,1,1,2,3,3,1,1,4,5,5,5,5] -- -> [[1,1,1,1],[2],[3,3],[1,1],[4],[5,5,5,5]]
+    
+        -- List comprehension
+    -- print [1..5]    -- -> [1,2,3,4,5]
+    -- print [1,3..10] -- -> [1,3,5,7,9]
+    -- print [9,7..1]  -- -> [9,7,5,3,1]
+
+    -- print [x | x <- [1..10], even x]           -- -> [2,4,6,8,10]
+    -- print [x | x <- [1..5], True]              -- -> [1,2,3,4,5]
+    -- print [x | x <- [1..5], False]             -- -> []
+    -- print [x | x <- [1..20], x < 10, x*x > 10] -- -> [4,5,6,7,8,9]
+    -- print [x*x | x <- [1..5]]                  -- -> [1,4,9,16,25]
+    -- print [x*x | x <- [1..5], odd x]           -- -> [1,9,25]
+    -- print $ product [x*x | x <- [1..5], odd x] -- -> 225
+    -- print [(x,y) | x <- [1,2,3], y <- ['a','b']] -- -> [(1,'a'),(1,'b'),(2,'a'),(2,'b'),(3,'a'),(3,'b')]
+    
+        -- Задачи за List comprehension
+    -- print $ divisors 245         -- -> [1,5,7,35,49]
+    -- print $ prodSumDiv 1 10 3 -- -> 24 (1*4*6)
+
+    -- print $ removeNb 10  -- -> [(6,7),(7,6)]
+    -- print $ removeNb 11  -- -> []
+    -- print $ removeNb 17  -- -> [(10,13),(13,10)]
+    -- print $ removeNb 20  -- -> [(14,14)]
+
+        -- Задачи за низове
+    -- print $ digits "d321as231dSdadaSA" -- -> "321231"
+    -- print $ digitsSum "d321as231dSdadaSA"  -- -> 12
+    -- print $ digitsSum' "d321as231dSdadaSA" -- -> 12
+    
+    -- print $ capitalize "Abcd" -- -> "ABCD"
+    -- print $ isCapitalized "ABCD" -- -> True
+    -- print $ isCapitalized "AbCD" -- -> False
+    
+    -- print $ nOrMoreVowels ["cat", "dog", "doggo", "kitten", "rat"] 2 -- -> ["doggo", "kitten"]
+
+    -- print $ isPrefixOf' "cat" "dog"  -- -> False
+    -- print $ isPrefixOf' "dogs" "dog" -- -> False
+    -- print $ isPrefixOf' "dog" "dog"  -- -> True
+    -- print $ isPrefixOf' "cat" "cats" -- -> True
+    
+    -- print $ tails' [1,2,3,4] -- -> [[1,2,3,4],[2,3,4],[3,4],[4],[]]
+    -- print $ isInfixOf'' "can" "I can't" -- -> True
+    -- print $ isInfixOf'' "can't" "I can" -- -> False
+
+    -- print $ longestSubstring  "111228888236555" -- -> 4 (заради 8888)
+
+    -- print $ tighten "  This   is  a   sentence    " -- -> "This is a sentence"
+    -- print $ words "  This   is  a   sentence    "   -- -> ["This","is","a","sentence"]
+    -- print $ unwords ["This","is","a","sentence"]    -- -> "This is a sentence"
+
+
+UPR 2 - HS
+
+import Data.List(minimumBy, nub, group, sort, sortBy)
+import Data.Char(digitToInt, ord)
+import Data.Function(on)
+
+-- Вектори/n-торки (tuples) - наредени n-торки от елементи. Типовете им са определи предварително, но могат да бъдат различни.
+a :: (Int, Int)
+a = (1, 2)
+-- може да достъпваме първи и втори елемент с fst и snd съответно (само при двойки)
+b :: (Int, Float, Float)
+b = (1, 2.3, 4.5)
+
+-- може да ги сравняваме с ==, но само ако са с еднаква дължина
+
+-- може да ги подаваме като аргументи
+addPair :: (Int, Int) -> Int
+addPair p = fst p + snd p
+-- може да ползваме pattern matching с n-торки
+addPair' :: (Int, Int) -> Int
+addPair' (x, y) = x + y
+-- функциите fst и snd ги има само за наредени двойки - за n-торки с по-голямо n начинът да достъпим компонентите им е чрез pattern matching
+
+-- може да ги връщаме като резултат на функция
+divide :: Int -> Int -> (Int, Int)
+divide x y = (x `div` y, x `mod` y) -- ще върне (цяла част, остатък)
+
+-- ако някоя координата не ни интересува в даден случай, може в pattern-а да я заместим с '_' - wildcard
+addTriple :: (Int, Int, Int) -> Int
+addTriple (x, _, z) = x + z
+
+
+-- може да дефинираме наши типове, като имената им трябва да започват с главна буква
+type Grade = (String, String, Float)
+grade1 :: Grade
+grade2 :: Grade
+grade1 = ("John", "Algebra", 4.75)
+grade2 = ("Jane", "Geometry", 5.25)
+
+
+-- Задача 0. Да се дефинира функция isAscending :: Integer -> Bool, която проверява дали цифрите на число са във възходящ ред. Функцията да получава число, но да работи със списък от цифрите му.
+isAscending :: Integer -> Bool
+isAscending num = all ordered $ zip digits (tail digits)
+    where
+        digits = map digitToInt $ show num -- show е вградена функция, която конвертира нещо до низ (т.е. списък от Char-ове), а digitToInt (от Data.Char) конвертира символ на цифра до тази цифра като Int
+        ordered (x, y) = x <= y
+       -- като zip-нем списъка със същия, но "отместен" наляво (чрез взимане на опашката), получаваме списък от двойки последователни елементи, например:
+       -- [1,2,3,4,...]
+       -- [2,3,4,...]
+       -- [(1,2),(2,3),(3,4),...]
+       -- с all ordered провяваме дали при всяка двойка първият елемент е по-малък от вторият, тоест дали наистина всяка цифра е по-малка от следващата
+
+-- В горния вариант първо конструираме двойките последователни елементи, и след това сравняваме съответните елементи. Може да направим двете неща с една стъпка, като вместо zip ползваме zipWith (<).
+isAscending' :: Integer -> Bool
+isAscending' num = and $ zipWith (<) digits (tail digits)
+    where digits = map digitToInt $ show num
+
+-- Задача 1. Да се дефинира функция numBiggerElements :: [Int] -> [(Int, Int)], която за даден списък от числа xs връща като резултат 
+-- списък с елементи от вида (xi, ni), където xi е i-тият елемент на xs, а ni е броят на елементите на xs, които са по-големи от xi.
+numBiggerElements :: [Int] -> [(Int, Int)]
+numBiggerElements xs = [(x, length [y | y <- xs, y > x]) | x <- xs]
+
+-- Задача 2. Да се дефинира функция splitByParity :: [Int] -> ([Int], [Int]), която получава списък от цели числа и го разделя на два списъка - от нечетни и четни.
+splitByParity :: [Int] -> ([Int], [Int])
+splitByParity xs = (filter odd xs, filter even xs)
+
+-- Задача 3. Да се дефинира функция partition' :: (a -> Bool) -> [a] -> ([a], [a]), която получава предикат и списък и разделя списъка на 2 части:
+-- 1) елементите, които удовлетворяват предиката
+-- 2) елементите, които не го удовлетворяват
+-- Функцията е с ', тъй като вече съществува вградена функция под името partition.
+partition' :: (a -> Bool) -> [a] -> ([a], [a])
+partition' p xs = (filter p xs, filter (not . p) xs)
+
+-- Да се пререши splitByParity, ползвайки partition.
+splitByParity' :: [Int] -> ([Int], [Int])
+splitByParity' xs = partition' odd xs
+
+-- Задача 4. Да се дефинира функция quickSort :: [Int] -> [Int], която реализира бързо сортиране върху списък.
+quickSort :: [Int] -> [Int]
+quickSort []     = []
+quickSort (p:xs) = quickSort smaller ++ [p] ++ quickSort larger
+    where (smaller, larger) = partition' (<p) xs
+
+-- Задача 5. Да се дефинира тип Vector, определящ се от три координати - x, y и z. Да се дефинират функции за работа с типа:
+type Vector = (Double, Double, Double)
+-- а) sumVectors :: Vector -> Vector -> Vector, която намира сумата на два вектора
+sumVectors :: Vector -> Vector -> Vector
+sumVectors (x1, y1, z1) (x2, y2, z2) = (x1 + x2, y1 + y2, z1 + z2)
+-- b) scaleVector :: Vector -> Double -> Vector, която умножава скалар и вектор
+scaleVector :: Vector -> Double -> Vector
+scaleVector (x, y, z) p = (p * x, p * y, p * z)
+-- c) dotProduct :: Vector -> Vector -> Double, която намира скаларното произведение на два вектора
+dotProduct :: Vector -> Vector -> Double
+dotProduct (x1, y1, z1) (x2, y2, z2) = x1 * x2 + y1 * y2 + z1 * z2
+
+v, p:: Vector
+v = (1, 1, 1)
+p = (2, 3, 5)
+
+-- Задача 6. Да се дефинира тип Product, определящ се от име, количество и цена. Да се дефинира тип Shop (“база от данни”), който представлява инвентара от продукти на даден магазин.
+type Product = (String, Int, Float)
+type Shop = [Product]
+
+p1, p2, p3, p4 :: Product
+p1 = ("Milk", 5, 1.20)
+p2 = ("Cheese", 20, 1.80)
+p3 = ("Bread", 10, 0.50)
+p4 = ("Chocolate", 3, 2.00)
+
+shop :: Shop
+shop = [p1, p2, p3, p4]
+
+-- Задача 7. Да се дефинира функция getPrice :: Product -> Float, която връща цената на даден продукт.
+getPrice :: Product -> Float
+getPrice (_, _, price) = price
+
+-- Задача 8. Да се дефинира функция getTotal :: Shop -> Float, която връща оборота на даден магазин, ако е продаден целият инвентар.
+getTotal :: Shop -> Float
+getTotal [] = 0
+getTotal ((_, quantity, price) : xs) = (fromIntegral quantity) * price + getTotal xs -- тъй като quantity е Int, а price е Float, се налага конвертиране чрез fromIntegral
+
+-- 2ри вариант - с map и sum
+getTotal' :: Shop -> Float
+getTotal' xs = sum $ map (\ (_, quantity, price) -> (fromIntegral quantity) * price) xs 
+
+-- Задача 9. Да се дефинира функция buy :: String -> Int -> Shop -> Shop, която симулира “закупуването” на даден продукт, като приема име, количество и магазин. Да се вземе предвид, че не може след продажбата 
+-- в магазина да имаме отрицателно количество за даден продукт. Ако искаме да купим продукт, но неговата наличност е недостатъчна, нека операцията да е празна, т.е. да не променя нищо.
+-- Ако след покупка количеството е станало 0, продуктът да се премахне от инвентара.
+buy :: String -> Int -> Shop -> Shop
+buy _ _ [] = error "No such product"
+buy toBuyName toBuyQuantity (x@(name, quantity, price) : xs) -- синоними с @ може да правим и при n-торки - така може да реферираме както до цялата n-торка като x, така и до отделните ѝ елементи с техните имена
+    | toBuyName == name && toBuyQuantity < quantity  = (name, quantity - toBuyQuantity, price) : xs -- намаляме количеството
+    | toBuyName == name && toBuyQuantity == quantity = xs                                           -- премахваме продукта изцяло
+    | toBuyName == name && toBuyQuantity > quantity  = x : xs                                       -- не променяме нищо
+    | otherwise                                      = x : buy toBuyName toBuyQuantity xs           -- продължаваме да търсим в магазина
+
+-- Задача 10. Да се дефинира функция getNeeded :: Int -> Shop -> [Product], която връща списък от продукти, чиято наличност е по-малка или равна на даден праг (количество).
+getNeeded :: Int -> Shop -> [Product]
+getNeeded _ [] = []
+getNeeded needed (x@(name, quantity, price) : xs)
+    | quantity <= needed = x : getNeeded needed xs
+    | otherwise          = getNeeded needed xs
+
+-- 2ри вариант - filter
+getNeeded' :: Int -> Shop -> [Product]
+getNeeded' needed xs = filter ((<= needed) . getQuantity) xs
+    where getQuantity (_, quantity, _) = quantity
+
+-- подобно на горния, но с list comprehension вместо filter, благодарение на което не ни се налага да дефинираме функция getQuantity
+getNeeded'' :: Int -> Shop -> [Product]
+getNeeded'' needed xs = [x | x@(name, quantity, price) <- xs, quantity <= needed]
+
+-- Задача 11. Да се дефинира функция closestToAverage :: Shop -> String, която намира името на продукта, чиято цена е най-близка до средната за всички в даден магазин.
+
+-- първо - да намерим средната цена
+getAverage :: Shop -> Float
+getAverage xs = sum prices / fromIntegral (length prices)
+    where prices = [price | (_, _, price) <- xs] -- map getPrice xs
+
+-- вече към същинската функция
+-- 1ви вариант - с fold-ване за намиране на минималния елемент
+closestToAverage :: Shop -> String
+closestToAverage xs = name
+    where 
+        (name, _, _) = foldl1 compareProducts xs -- Тъй като резултатът от функцията е 3ка, а на нас ни трябва само 1ва ѝ координата, си запазваме резултатът тук и извличаме само това, което ни е нужно от него.
+        compareProducts p1@(_, _, price1) p2@(_, _, price2) = if abs (price1 - average) < abs (price2 - average) then p1 else p2
+        average = getAverage xs
+        -- Алтернативно - може първо да извадим средното от всяка цена, и после да сравняваме директно тези разлики:
+        -- (name, _, _) = foldl1 compareProducts (map (substract average) xs)
+        -- substract x (name, quantity, price) = (name, quantity, abs(price - x))
+        -- compareProducts p1@(_, _, difference1) p2@(_, _, difference2) = if difference1 < difference2 then p1 else p2
+
+-- 2ри вариант - с ползване на minimumBy, вградена функция от библиотеката Data.List, която намира минималния елемент на списък според подадена функция за сравнение.
+-- Подадената функция не е от типа на < и >, които връщат булева стойност, а трябва да връща специалния тип Ordering.
+-- Този тип има 3 валидни стойности - LT (less than), GT (greater than) и EQ (equal). По-нататък ще коментираме такива типове, за сега не са ни важни тези стойности, а функцията compare, която
+-- приема два аргумента от един и същи тип (който поддържа сравнение), сравнява ги, и връща съответната стойност на Ordering (ако първият е по-малък, ще върне LT, ако са равни - EQ, иначе - GT).
+closestToAverage' :: Shop -> String
+closestToAverage' xs = name
+    where
+        (name, _, _) = minimumBy comparePrices xs -- За n-торки има дефиниран compare, но той ще ги сравни по всички координати, а ние искаме да направим по-различно сравнение 
+        -- (интересува ни само третата координата, и трябва преди сравнението да приложим някои операции към нея), затова ще си дефинираме наша функция, която ще ползва вградения compare.
+        comparePrices :: Product -> Product -> Ordering
+        comparePrices (_, _, price1) (_, _, price2) = compare (abs(price1 - average)) (abs(price2 - average))
+        
+        average = getAverage xs
+
+
+shop1, shop2 :: Shop
+shop1 = [("bread", 1, 1), ("milk", 1, 2.5), ("lamb", 1, 10), ("cheese", 1, 5), ("butter", 1, 2.3)]
+shop2 = [("bread", 1, 1), ("cheese", 1, 2.5), ("bread", 1, 1), ("cheese", 1, 5), ("butter", 1, 2.3)]
+
+-- Задача 12. Да се дефинира функция cheaperAlternative, която намира броя на продуктите, за които има продукт със същото име, но по-ниска цена.
+cheaperAlternative :: Shop -> Int
+cheaperAlternative xs = length $ filter hasTwoPrices $ groupPrices xs
+    where
+        names = nub [name | (name, _, _) <- xs] -- nub е вградена ф-ия от библиотеката Data.List, която изтрива повторенията в списък. Тук ще получим списък от имената на продукти, без повторения
+
+        groupPrices :: Shop -> [[Float]]
+        groupPrices xs = [[price | (name', _, price) <- xs, name' == name] | name <- names] -- тук ще получим списък от списъци, всеки съдържащ различните цени на даден продукт
+        -- например в shop2 ще имаме [[1.0,1.0],[2.5,5.0],[2.3]], т.к. bread присъства 2 пъти с цена 1, cheese - 2 пъти с цени 2.5 и 5.0, а butter - веднъж с 2.3  
+
+        hasTwoPrices xs = length (nub xs) > 1 -- ако има две различни цени, то след като премахнем повторенията трябва списъкът да е с дължина поне 2
+
+
+
+-- Задача 13. Да се дефинира функция calcFrequencyTable :: String -> [(Char,Int)], която получава низ cs, състоящ се от символите a-z. Функцията трябва да върне списък от двойки, в които
+-- първият елемент е символ от cs, а вторият е броя на срещания на този символ. В резултатът трябва да присъстват всички символи на cs, без повторение. Двойките трябва да са сортирани
+-- в низходящ ред по броя на срещанията, като при еднакъв броя срещания първа трябва да е двойката със символ с по-малък ASCII код.
+
+-- 1ви вариант: със сортиране
+calcFrequencyTable :: String -> [(Char, Int)]
+calcFrequencyTable "" = []
+calcFrequencyTable cs = sortBy (\(_,cnt1) (_,cnt2) -> compare cnt2 cnt1) [(c, length (filter (==c) cs)) | c <- sort (nub cs)]
+-- sortBy е вградена функция, която получава функция за сравнение и сортира списъка според нея. Както minimumBy, тази функция трябва да връща стойност от типа Ordering.
+-- Тук със sort (nub cs) получаваме списък от буквите в азбучен ред, след това конструираме списък от двойки с тях и съответните им броеве на срещания, и накрая със sortBy и подадената ламбда
+-- сортираме двойките по вторите им координати. Възползваме се от това, че вградената сортировка е устойчива (стабилна). Това свойство ще го разглеждате по-детайлно по ДАА, но идеята е че когато две стойности
+-- са равни, след сортировката те ще присъстват в същия ред както преди нея. В този конкретен случай, тъй като първоначалният списък от двойки е сортиран по азбучен ред, ако две двойки са равни
+-- (тоест имат една и съща буква с един и същ брой срещания), то след сортировката те също ще са сортирани по азбучен ред, т.е. първа ще е тази с по-малък ASCII код - точно това се иска в условието.
+
+-- сравняването по втора координата може да стане и без да се налага ламбда - чрез специалния оператор (on) може директно да приложим compare към вторите координати, но това ще ни даде
+-- compare cnt1 cnt2, поради което се налага и функцията flip, която просто разменя аргументите
+calcFrequencyTable' :: String -> [(Char, Int)]
+calcFrequencyTable' "" = []
+calcFrequencyTable' cs = sortBy (flip compare `on` snd) pairs
+    where pairs = [(head x, length x) | x <- group (sort cs)]
+    -- Тук вместо да ползваме nub, първо сортираме и после групираме, при което ще получим списък от списъци, всеки съдържащ срещанията на дадена буква. Този списък може да трансформираме до
+    -- нужният ни списък от двойки (буква, брой срещания), като просто за всеки списък вземем главата му за буквата, и дължината му за броя срещания.
+
+-- 2ри вариант: с добавяне на елементи към вече сортиран списък, запазвайки го сортиран (подобно на insertion sort)
+calcFrequencyTable'' :: String -> [(Char, Int)]
+calcFrequencyTable'' str = helper (nub str) [] -- взимаме списък от буквите без повторения, и за всяка буква добавяме съответстващата ѝ двойка на правилното място в списък 
+    where
+        helper []     pairs = pairs
+        helper (c:cs) pairs = helper cs (insert (c, length (filter (==c) str)) pairs)
+       
+        insert p@(_,_) []                     = [p]
+        insert p1@(_,cnt1) (p2@(_,cnt2) : ps) = if (compare p1 p2) then p1:p2:ps else p2 : insert p1 ps
+        compare p1@(c1,cnt1) p2@(c2,cnt2)
+            | cnt1 > cnt2                     = True
+            | cnt1 == cnt2 && ord c1 < ord c2 = True
+            | otherwise                       = False
+
+
+
+main :: IO()
+main = do
+    -- print a       -- -> (1,2)
+    -- print $ fst a -- -> 1
+    -- print $ snd a -- -> 2
+    -- print b       -- -> (1,2.3,4.5)
+    -- print $ fst b -- Couldn't match expected type `(a0, b0)' with actual type `(Int, Float, Float)'
+    
+    -- print $ (1,2) == (1,2) -- -> True
+    -- print $ (1,2) == (1,1) -- -> False
+    -- print $ (1,2,3) == (1,2) -- error: Couldn't match expected type `(Integer, Integer, Integer)' with actual type `(Integer, Integer)'
+    
+    -- print $ addPair (3,4)  -- -> 7
+    -- print $ addPair' (3,4) -- -> 7
+    
+    -- print $ divide 7 2 -- -> (3,1)
+    
+    -- print grade1 -- -> ("John","Algebra",4.75)
+    -- print grade2 -- -> ("Jane","Geometry",5.25)
+    
+    -- print $ isAscending 234 -- -> True
+    -- print $ isAscending' 243 -- -> False
+
+    -- print $ numBiggerElements [5,6,3,4]    -- -> [(5,1),(6,0),(3,3),(4,2)]
+    -- print $ splitByParity [1, 2, 3, 4]     -- -> ([1,3], [2,4])
+    -- print $ partition' (<5) [0..10]        -- -> ([0,1,2,3,4], [5,6,7,8,9,10])
+    -- print $ quickSort [3,2,5,1,6,10,8,9,4] -- -> [1,2,3,4,5,6,8,9,10]
+    
+    -- print $ sumVectors   (1, 1, 1) (2, 3, 5) -- -> (3.0,4.0,6.0)
+    -- print $ scaleVector  (2, 3, 5) 3         -- -> (6.0,9.0,15.0)
+    -- print $ dotProduct   (1, 1, 1) (2, 3, 5) -- -> 10.0
+    
+
+    -- print $ getPrice ("Milk", 5, 1.20) -- -> 1.2
+    -- print shop -- -> [("Milk",5,1.2),("Cheese",20,1.8),("Bread",10,0.5),("Chocolate",3,2.0)]
+    -- print $ getTotal shop     -- -> 53.0
+    -- print $ buy "Milk" 3 shop -- -> [("Milk",2,1.2),("Cheese",20,1.8),("Bread",10,0.5),("Chocolate",3,2.0)]
+    -- print $ buy "Milk" 5 shop -- -> [("Cheese",20,1.8),("Bread",10,0.5),("Chocolate",3,2.0)]
+    -- print $ getNeeded 5 shop  -- -> [("Milk",5,1.2),("Chocolate",3,2.0)]
+    
+    -- print shop1 -- -> [("bread",1,1.0),("milk",1,2.5),("lamb",1,10.0),("cheese",1,5.0),("butter",1,2.3)]
+    -- print shop2 -- -> [("bread",1,1.0),("cheese",1,2.5),("bread",1,1.0),("cheese",1,5.0),("butter",1,2.3)]
+    -- print $ getAverage shop1         -- -> 4.16
+    -- print $ closestToAverage shop1   -- -> "cheese"
+    -- print $ closestToAverage' shop1  -- -> "cheese"
+    -- print $ cheaperAlternative shop2 -- -> 1 (поради cheese, което присъства с цени 2.5 и 5.0
+
+
+    -- print $ calcFrequencyTable "ababac"    -- -> [('a',3),('b',2),('c',1)]
+    -- print $ calcFrequencyTable "aaabbbc"   -- -> [('a',3),('b',3),('c',1)]
+    -- print $ calcFrequencyTable "ababacccc" -- -> [('c',4),('a',3),('b',2)]
+    -- print $ calcFrequencyTable "bababa"    -- -> [('a',3),('b',3)]
+
+-- UPR 3 - HS
+
+import Data.List(maximumBy, minimumBy)
+import Data.Function(on)
+
+        {- Генерични и полиморфни функции:
+Полиморфните функции имат единствена дефиниция, която работи върху всички типове. Пример: length - работи върху списъци от всички типове (length :: [a] -> Integer).
+
+Генеричните функции могат да се прилагат към данни от различни типове, но за различните типове се използват различни дефиниции (различни методи на генеричната функция).
+Пример: + (има една дефиниция за Int, друга за Double), show, == -}
+
+
+
+        {- Класове
+Понятието клас в Haskell се определя като колекция от типове, за които се поддържа множество от додефинирани операции, наречени методи.
+Множеството (колекцията) от типове, за които са дефинирани съответно множеството от функции, се нарича клас (type class). Типовете, които принадлежат на даден клас, се наричат екземпляри на този клас.
+Макар и донякъде да има прилики с класовете от ООП, тук говорим за по-различно понятие. Ако ще правим аналогия, type classes са по-близо до интерфейси (но все пак не са точно същото).
+
+Пример: за функцията elem по принцип може да смятаме че е декларирана като elem :: a -> [a] -> Bool, но тъй като тя ще сравнява елементи за равенство, то тя ще има смисъл само при типове които всъщност 
+поддържат тази операция. Множеството на тези типове всъщност е класа Eq, който вллючва Int, Char, String, Bool, Double и др. (НЕ включва функционални типове - не може да сравняваме функции за равенство).
+
+И така elem всъщност е elem :: Eq a => a -> [a] -> Bool, т.е. elem ще работи само за онези типове а, които са от Eq.
+В тази декларация може да се види синтаксиса за деклариране на функция която ще работи само за даден клас - в началото добавяме класа, името на типа който ще му принадлежи, и '=>', след което си продължаваме
+с нормалната декларация. Ако имахме няколко класа, трябва да ги обградим в скоби и да ги изредим, разделени със запетаи - например f :: (Eq a, Eq b) => ..., или пък g :: (Eq a, Visible a) => ...
+
+Декларацията на даден клас включва неговото име, сигнатурите на класа (те еднозначно определят класа; това са функциите, които следва задължително да бъдат дефинирани за всички типове,
+които са екземпляри на този клас). След сигнатурите може да се добавят и дефиниции по подразбиране. Например Eq е дефиниран така:
+class Eq a where
+    (==), (/=) :: a -> a -> Bool
+    x /= y = not (x==y)
+    x == y = not (x/=y)
+Функциите, които трябва да бъдат дефинирани за да бъде един тип Eq са (==) и (/=). Те имат дефиниции по подразбиране, които обаче са взаимно рекурсивни, така че няма как да разчитаме изцяло на тях.
+Това което ни позволяват е да дефинираме само едната - например само (==), при което ще имаме готова, работеща дефиниция на (/=), която ще е просто отрицанието на (==).
+
+Може да имаме и производни класове (derived classes) - такива, които са подкласове на други класове. Например класът на наредените типове Ord - такива типове могат да бъдат сравнявани както за равенство,
+така и за наредба (<, <=, >, >=), тоест те включват всичките операции на класа Eq, плюс няколко допълнителни, следователно са подклас на Eq.
+class Eq a => Ord a where
+    (<), (<=), (>), (>=) :: a -> a -> Bool
+    max, min :: a -> a -> a
+    compare :: a -> a -> Ordering
+    ... (дефиниции по подразбиране за всичко без compare)
+Бихме могли да кажем че Ord "наследява" Eq, но отново трябва да внимаваме - това не са класовете от ООП. -}
+
+
+
+        -- Алгебрични типове - служат за създаване на наши собствени типове
+-- Ползваме ключовата дума data. Даваме име на типа, след което изреждаме конструкторите му - това са всъщност функции, които връщат стойност от типа.
+-- За различните конструктори може да си мислим като за различни начини за конструиране на типа.
+data Temp = Cold | Hot -- Името на типа и имената на конструкторите задължително започват с главна буква. Различните конструктори се разделят с '|'.
+
+-- Типове може да бъдат екземпляри на множество класове - за целта се използва ключовата дума deriving. В тези случаи се задават дефиниции по подразбиране на функциите на тези класове
+data Season = Spring |
+              Summer |
+              Autumn |
+              Winter deriving Show -- така типът ще бъде екземпляр на класа Show, което означава че може да го print-нем в main-а
+
+-- При функциите за работа с алгебрични типове най-често ползваме pattern matching.
+weather :: Season -> Temp
+weather Summer = Hot
+weather _      = Cold
+
+-- Temp и Summer са примери за изброени типове - при тях конструкторите нямат аргументи. Друг вид са производните типове (резултатни типове, product types).
+data People = Person Name Age 
+    deriving Show
+
+type Name = String
+type Age = Int
+
+--data Employee = Person Name Age String -- error: Multiple declarations of `Person'
+-- Не може да ползваме едно и също име на конструктор, дори и да е в различни типове, дори и да има различен брой аргументи.
+
+-- Задача 1. Да се дефинира типа Shape с 4 конструктора: 
+-- Circle,    който има 1 аргумент  - радиус
+-- Rectangle, който има 2 аргумента - ширина и височина
+-- Triangle,  който има 3 аргумента - 3 страни
+-- Cylinder,  който има 2 аргумента - радиус на основата и височина
+-- Типа Shape да се направи екземпляр на класа Show и за него да се дефинира метода show, позволяващ print-ването му
+data Shape = Circle Double | Rectangle Double Double | Triangle Double Double Double | Cylinder Double Double 
+-- Тук за да го направим екземпляр на Show няма да ползваме deriving, тъй като това ще ни даде дефиниция по подразбиране на show, а ние искаме да си напишем наша.
+
+c1, r1, cl1, tr1 :: Shape
+c1  = Circle 3
+r1  = Rectangle 4 5
+cl1 = Cylinder 3 3
+tr1 = Triangle 3 4 5
+
+instance Show Shape where
+    show (Circle radius)  = "A circle with radius " ++ show radius
+    show (Rectangle a b)  = "A rectangle with sides: " ++ show a ++ " and " ++ show b
+    show (Cylinder r h)   = "A cylinder with radius " ++ show r ++ " and height " ++ show h
+    show (Triangle a b c) = "A triangle with sides: " ++ show a ++ ", " ++ show b ++ " and " ++ show c
+
+-- Задача 2. За Shape да се дефинират:
+-- a) функция perimeter :: Shape -> Double, която намира периметъра на фигурата
+perimeter :: Shape -> Double
+perimeter (Circle radius)  = 2 * pi * radius
+perimeter (Rectangle a b)  = 2 * (a + b)
+perimeter (Triangle a b c) = a + b + c
+perimeter _                = error "Unsupported shape"
+-- b) функция area :: Shape -> Double, която намира лицето на фигурата
+area :: Shape -> Double
+area (Circle radius)     = pi * radius * radius
+area (Rectangle a b)     = a * b
+area (Cylinder r h)      = 2 * area base + h * perimeter base 
+    where base = Circle r
+area tr@(Triangle a b c) = sqrt (p * (p - a) * (p - b) * (p - c)) 
+    where p = (perimeter tr) / 2
+-- c) предикат isRound :: Shape -> Bool, който проверява дали дадена фигура е кръгла (някоя от стените е окръжност)
+isRound :: Shape -> Bool
+isRound (Circle _)     = True
+isRound (Cylinder _ _) = True
+isRound _              = False
+-- d) предикат is2D :: Shape -> Bool, който проверява дали дадена фигура е равнинна (лежи в една равнина)
+is2D :: Shape -> Bool
+is2D (Cylinder _ _) = False
+is2D _              = True
+
+-- Задача 3. Да се дефинира функция sumArea, която приема списък от фигури и връща сумата от лицата на фигурите в списъка.
+sumArea :: [Shape] -> Double
+sumArea lst = foldr1 (+) (map area lst)   -- валидно
+--sumArea lst = foldr1 (+) . map area lst -- невалидно, защото map area lst се оценява до списък и не може да композираме функция със списък
+--sumArea = foldr1 (+) . map area         -- валидно, защото всъщност е еквивалентно на sumArea lst = (foldr1 (+) . map area) lst
+
+-- Да се дефинира още една функция biggestShape, която намира фигурата с най-голямо лице.
+biggestShape :: [Shape] -> Shape
+biggestShape lst = foldl1 (\ sh1 sh2 -> if area sh1 >= area sh2 then sh1 else sh2) lst
+
+-- 2ри вариант - ползвайки maximumBy, комбинирано с on за да сравняваме по лице
+biggestShape' :: [Shape] -> Shape
+biggestShape' lst = maximumBy (compare `on` area) lst
+
+-- Задача 4. Да се дефинира тип Point, който задава точка в равнината и точка в пространството. Типа да се направи екземпляр на класа Eq и за него да се дефинира равенство на точки от една и съща размерност.
+data Point = P2 Double Double | P3 Double Double Double deriving Show
+ 
+printPoint :: Point -> String
+printPoint (P2 x y)   = "(" ++ show x ++ ", " ++ show y ++ ")"
+printPoint (P3 x y z) = "(" ++ show x ++ ", " ++ show y ++ ", " ++ show z ++ ")"
+
+instance Eq Point where
+    (P2 x1 y1)    == (P2 x2 y2)    = x1 == x2 && y1 == y2
+    (P3 x1 y1 z1) == (P3 x2 y2 z2) = x1 == x2 && y1 == y2 && z1 == z2
+
+-- Задача 5. Да се дефинира функция distance за работа с типа Point, която намира разстоянието между две (съвместими) точки. 
+-- Ако точките са с различна размерност (т.е. имат различен брой координати) функцията да връща съобщение за грешка.
+distance :: Point -> Point -> Double
+distance (P2 x1 y1) (P2 x2 y2)       = sqrt $ (x2 - x1)^2 + (y2 - y1)^2
+distance (P3 x1 y1 z1) (P3 x2 y2 z2) = sqrt $ (x2 - x1)^2 + (y2 - y1)^2 + (z2 - z1)^2
+distance _ _                         = error "Invalid points!"
+
+-- Задача 6. Да се дефинира функция getClosestPoint, която приема списък от точки и още една точка p. 
+-- Като резултат функцията да връща тази точка от списъка, която е най-близо до точката p.
+getClosestPoint :: [Point] -> Point -> Point
+getClosestPoint lst p = foldl1 (\ p1 p2 -> if distance p p1 <= distance p p2 then p1 else p2) lst
+
+-- 2ри вариант - ползвайки minimumBy, комбинирано с on за да сравняваме по разстоянието до p
+getClosestPoint' :: [Point] -> Point -> Point
+getClosestPoint' lst p = minimumBy (compare `on` (distance p)) lst
+
+
+
+    -- Рекурсивни алгебрични типове - алгебричните типове, които се описват в термините на самите себе си. При тях имаме конструктор с аргументи от самия тип.
+-- Например може да дефинираме понятието "израз" - или е някакъв литерал (например цяло число), или е операция приложена към два други израза:
+data Expr = Lit Int |
+            Add Expr Expr |
+            Sub Expr Expr
+
+-- Задача 7. Да се дефинира рекурсивен алгебричен тип двоично дърво, който има стойности от тип Int по върховете си. Нека типът е екземпляр на класа Show.
+data IntTree = IntEmpty | IntNode Int IntTree IntTree
+               deriving Show
+
+intTree :: IntTree                                          --    5
+intTree = IntNode 5 (IntNode 2 IntEmpty                     --   / \
+                            (IntNode 3 IntEmpty IntEmpty))  --  2   6
+                    (IntNode 6 IntEmpty IntEmpty)           --   \
+                                                            --    3  
+
+-- Задача 8. Да се преработи алгебричния тип за двоично дърво, така че при конструирането му да може да се определя типа на възлите.
+data BTree a = Empty | Node a (BTree a) (BTree a) deriving Show
+
+t1 :: BTree Int                             --    5
+t1 = Node 5 (Node 2 Empty                   --   / \
+                    (Node 3 Empty Empty))   --  2   6
+            (Node 6 Empty Empty)            --   \
+                                            --    3 
+
+t2 :: BTree Int                             --    5
+t2 = (Node 5 (Node 3 Empty Empty)           --   / \
+             (Node 4 (Node 5 Empty Empty)   --  3   4
+                     (Node 7 Empty Empty))) --     / \
+                                            --    5   7
+
+charTree :: BTree Char                      --   a
+charTree = Node 'a' (Node 'b' Empty Empty)  --  / \
+                    (Node 'c' Empty Empty)  -- b   c
+
+t3 :: BTree Int                             --     1     
+t3 = Node 1 (Node 2 (Node 5 Empty Empty)    --    / \    
+                     Empty)                 --   2   3 
+            (Node 3 (Node 7 Empty Empty)    --  /   / \  
+                    (Node 6 Empty Empty))   -- 5   7   6
+
+-- За двоичното дърво да се дефинират следните функции:
+-- a) size, която намира броя на възлите на двоично дърво
+size :: BTree a -> Int
+size Empty               = 0
+size (Node _ left right) = 1 + size left + size right
+-- b) height, която намира височината на двоично дърво
+height :: BTree a -> Int
+height Empty               = 0
+height (Node _ left right) = 1 + max (height left) (height right)
+-- c) sumTree, която намира сумата от възлите на двоично дърво. Забележка: функцията трябва да работи само за такива дървета, чиито възли наистина могат да се сумират! (например за BTree Char няма да могат)
+sumTree :: Num a => BTree a -> a
+sumTree Empty               = 0
+sumTree (Node x left right) = x + sumTree left + sumTree right
+-- d) sumLeaves, която намира сумата на елементите по листата на двоично дърво
+sumLeaves :: Num a => BTree a -> a
+sumLeaves Empty                = 0
+sumLeaves (Node x Empty Empty) = x
+sumLeaves (Node _ left  right) = sumLeaves left + sumLeaves right
+-- e) inorder, която обхожда двоично дърво в ред Ляво-Корен-Дясно
+inorder :: BTree a -> [a]
+inorder Empty               = []
+inorder (Node x left right) = inorder left ++ [x] ++ inorder right
+-- по аналогичен начин могат да се реализират и другите обхождания на дърво (Корен-Ляво-Дясно, Ляво-Дясно-Корен, Дясно-Корен-Ляво, ...)
+
+-- Пример за използване на такъв вид обхождане: при представяне на аритметичен израз чрез дърво - по листата ще има стойности (числа, неизвестни), а по вътрешните върхове - инфиксни операции (+, -, *, /, ^)
+expression :: BTree Char                                            --      -
+expression = Node '-' (Node '+' (Node '5' Empty Empty)              --     / \
+                                (Node '*' (Node '2' Empty Empty)    --    +   4
+                                          (Node 'x' Empty Empty)))  --   / \
+                      (Node '4' Empty Empty)                        --  5   *
+                                                                    --     / \
+getExpression :: BTree Char -> String                               --    2   x
+getExpression Empty                = ""
+getExpression (Node c Empty Empty) = [c]
+getExpression (Node c left right)  = "(" ++ (getExpression left) ++ [c] ++ (getExpression right) ++ ")"
+-- това е точно inorder обхождане, с добавени скоби и допълнителен случай при листо (тъй като там не трябва да имаме скоби)
+
+-- f) равенство на дървета (чрез операцията (==)). Забележка: за да може да сравняваме дървета за равенство, трябва първо да можем да сравняваме стойностите във възлите им!
+instance Eq a => Eq (BTree a) where
+    Empty         == Empty         = True
+    Node x1 l1 r1 == Node x2 l2 r2 = x1 == x2 && l1 == l2 && r1 == r2
+
+-- Задача 9. Да се дефинира функция average :: BTree Int -> Double, която приема двоично дърво от цели числа и пресмята средно-аритметичното от записаното във върховете му.
+-- 1ви вариант
+average :: BTree Int -> Double
+average tree = fromIntegral (sumTree tree) / fromIntegral (size tree) -- тук ще обходим цялото дърво 2 пъти - 1во за да сумираме възлите, 2ро за да намерим броя им
+-- 2ри вариант
+average' :: BTree Int -> Double 
+average' tree = fromIntegral (sum nodes) / fromIntegral (length nodes)
+    where nodes = inorder tree -- тук ще обходим дървото само веднъж - за да конструираме списъка nodes, но после ще обхождаме резултатния списък 2 пъти. 
+
+-- Задача 10. Да се дефинира функция getLevel :: Int -> BTree a -> [a], която приема цяло число k и двоично дърво t и връща списък от елементите на k-то ниво на t.
+getLevel :: Int -> BTree a -> [a]
+getLevel _ Empty               = []
+getLevel 1 (Node x left right) = [x]
+getLevel k (Node _ left right) = getLevel (k-1) left ++ getLevel (k-1) right 
+
+-- Задача 11. Да се дефинира функцията getLevelsTree, която приема двоично дърво от произволен тип и заменя всеки негов възел с двойка от стойността на възела и номера на нивото му.
+-- Например:
+--     1             (1,0)
+--    / \             / \
+--   2   3   =>   (2,1) (3,1)
+--  /   / \       /     /  \
+-- 5   7   6    (5,2) (7,2) (6,2)
+
+getLevelsTree :: BTree a -> BTree (a, Int)
+getLevelsTree bt = helper bt 0
+    where 
+        helper Empty               _   = Empty
+        helper (Node x left right) lvl = Node (x, lvl) (helper left (lvl + 1)) (helper right (lvl + 1))
+
+-- Задача 12. Да се дефинира функция mirrorTree :: BTree a -> BTree a, която преобразува двоично дърво в "огледалното" му.
+-- Например:
+--     1           1    
+--    / \         / \
+--   2   3   =>  3   2
+--  /   / \     / \   \
+-- 5   7   6   6   7   5
+mirrorTree :: BTree a -> BTree a
+mirrorTree Empty               = Empty
+mirrorTree (Node x left right) = Node x (mirrorTree right) (mirrorTree left)
+
+-- Задача 13. Да се дефинира функция mapTree, която приема функция f и двоично дърво t и прилага f към всеки възел на t.
+mapTree :: (a -> b) -> BTree a -> BTree b
+mapTree _ Empty               = Empty
+mapTree f (Node x left right) = Node (f x) (mapTree f left) (mapTree f right)
+
+
+
+main :: IO()
+main = do
+    -- print Cold               -- No instance for (Show Temp) arising from a use of `print'
+    -- print Summer             -- -> Summer (при изброените типове, default-ния print просто дава името на конструктора)
+    -- print (Person "Jack" 20) -- -> Person "Jack" 20 (при производни типове default-ния print дава името на конструктора и изрежда стойностите на аргументите)
+
+    -- print c1  -- -> A circle with radius 3.0
+    -- print r1  -- -> A rectangle with sides: 4.0 and 5.0
+    -- print cl1 -- -> A cylinder with radius 3.0 and height 3.0
+    -- print tr1 -- -> A triangle with sides: 3.0, 4.0 and 5.0
+
+    -- print $ area (Circle 3)       -- -> 28.274333882308138
+    -- print $ area (Rectangle 4 5)  -- -> 20.0
+    -- print $ area (Cylinder 3 3)   -- -> 113.09733552923255
+    -- print $ area (Triangle 3 4 5) -- -> 6.0
+    
+    -- print $ perimeter (Circle 3)       -- -> 18.84955592153876
+    -- print $ perimeter (Rectangle 4 5)  -- -> 18.0
+    -- print $ perimeter (Cylinder 3 3)   -- error: Unsupported shape
+    -- print $ perimeter (Triangle 3 4 5) -- -> 12.0
+    
+    -- print $ isRound c1 -- -> True
+    -- print $ isRound r1 -- -> False
+    -- print $ isRound cl1 -- -> True
+    -- print $ isRound tr1 -- -> False
+    
+    -- print $ is2D c1  -- -> True
+    -- print $ is2D r1  -- -> True
+    -- print $ is2D cl1 -- -> False
+    -- print $ is2D tr1 -- -> True
+    
+    -- print $ sumArea [c1, r1, cl1, tr1]      -- -> 167.3716694115407
+    -- print $ biggestShape [c1, r1, cl1, tr1] -- -> A cylinder with radius 3.0 and height 3.0 (-> cl1)
+    
+    -- print $ P2 0 1 == P2 0 0   -- -> False
+    -- print $ P2 0 1 == P2 0 1   -- -> True
+    -- print $ P2 0 1 /= P2 0 0   -- -> True
+    -- print $ P2 0 0 == P3 0 0 0 -- error: Non-exhaustive patterns in function ==
+    
+    -- print (P2 0 1)              -- -> P2 0.0 1.0
+    -- print $ printPoint (P2 0 1) -- -> "(0.0, 1.0)"
+    
+    -- print $ distance (P2 0 0) (P2 1 1)     -- -> 1.4142135623730951
+    -- print $ distance (P3 1 1 1) (P3 2 2 2) -- -> 1.7320508075688772
+    -- print $ distance (P3 0 0 0) (P2 0 0)   -- error: Invalid points!
+
+    -- print $ "Closest to " ++ printPoint (P2 1 1) ++ " is: " ++ (printPoint $ getClosestPoint [(P2 0 (-6)), (P2 2 3), (P2 10 4)] (P2 1 1)) -- -> "Closest to (1.0, 1.0) is: (2.0, 3.0)"
+
+
+
+    -- print intTree -- -> IntNode 5 (IntNode 2 IntEmpty (IntNode 3 IntEmpty IntEmpty)) (IntNode 6 IntEmpty IntEmpty)
+    -- print t1 -- -> Node 5 (Node 2 Empty (Node 3 Empty Empty)) (Node 6 Empty Empty)
+    
+    -- print $ size t1       -- -> 4
+    -- print $ height t1     -- -> 3
+
+    -- print $ sumTree t1    -- -> 16
+    -- print $ sumTree charTree -- No instance for (Num Char) arising from a use of `sumTree'
+    -- print $ sumLeaves t1  -- -> 9
+
+    -- print $ inorder t2    -- -> [3,5,5,4,7]
+    -- print $ getExpression expression -- -> "((5+(2*x))-4)"
+
+    -- print $ t1 == t1   -- -> True
+    -- print $ t1 == t2   -- -> False
+
+    -- print $ average t2    -- -> 4.8 ((3 + 5 + 5 + 4 + 7) / 5)
+
+    -- print $ getLevel 3 t2 -- -> [5,7]
+    -- print $ getLevelsTree t3 -- -> Node (1,0) (Node (2,1) (Node (5,2) Empty Empty) Empty) (Node (3,1) (Node (7,2) Empty Empty) (Node (6,2) Empty Empty))
+    {- или форматирано по-добре:
+    -> Node (1,0) (Node (2,1) (Node (5,2) Empty Empty)
+                              Empty) 
+                  (Node (3,1) (Node (7,2) Empty Empty) 
+                              (Node (6,2) Empty Empty)) -}
+
+    -- print $ mirrorTree t3 -- -> Node 1 (Node 3 (Node 6 Empty Empty) (Node 7 Empty Empty)) (Node 2 Empty (Node 5 Empty Empty))
+    {- -> Node 1 (Node 3 (Node 6 Empty Empty)                          
+                         (Node 7 Empty Empty)) 
+                 (Node 2 Empty 
+                         (Node 5 Empty Empty)) -}
+
+    -- print $ mapTree (\ x -> x * x) t3 -- -> Node 1 (Node 4 (Node 25 Empty Empty) Empty) (Node 9 (Node 49 Empty Empty) (Node 36 Empty Empty))
+    {- --> Node 1 (Node 4 (Node 25 Empty Empty) 
+                          Empty) 
+                  (Node 9 (Node 49 Empty Empty) 
+                          (Node 36 Empty Empty)) -}
+
+-- UPR 4 - HS
+
+import Data.List(delete, intersect)
+-- Задача 0. Миналият път видяхме как да представим аритметичен израз чрез двоично дърво и как да го отпечатаме. Как може да изчислим стойността му?
+-- Първо, за да бъде по-ясно кои върхове са листа (и съответно трябва да не съдържат операции, а стойности), може да дефинираме типа двоично дърво така:
+data BTree a = Empty |
+               Leaf a |
+               Node a (BTree a) (BTree a) deriving Show
+                                                    
+expr1 :: BTree Char                                 --      -
+expr1 = Node '-' (Node '+' (Leaf '5')               --     / \
+                           (Node '*' (Leaf '2')     --    +   4
+                                     (Leaf '5')))   --   / \
+                 (Leaf '4')                         --  5   *
+                                                    --     / \
+                                                    --    2   5
+getExpression :: BTree Char -> String
+getExpression Empty                = []
+getExpression (Leaf c)             = [c]
+getExpression (Node c left right)  = "(" ++ (getExpression left) ++ [c] ++ (getExpression right) ++ ")"
+
+-- Вече към изчисляването:
+-- 1ви вариант - по-специален вид дърво, с възможност за различен тип стойности по вътрешните възли и листата
+data ExprTree node leaf = EmptyExpr |
+                          ExprLeaf leaf |
+                          ExprNode node (ExprTree node leaf) (ExprTree node leaf) deriving Show
+-- това дърво вече има два типа - node и leaf (можеха да бъдат просто a и b, но типовите променливи могат да имат и по-дълги и описателни имена), като възлите имат стойност от първия тип, а листата от втория
+
+expr2 :: ExprTree Char Double                                   --      -
+expr2 = ExprNode '-' (ExprNode '+' (ExprLeaf 5)                 --     / \
+                                   (ExprNode '*' (ExprLeaf 2)   --    +   4
+                                                 (ExprLeaf 5))) --   / \
+                     (ExprLeaf 4)                               --  5   *
+                                                                --     / \
+                                                                --    2   5                                                    
+
+calc :: ExprTree Char Double -> Double
+calc EmptyExpr    = 0
+calc (ExprLeaf x) = x -- при листо няма какво да смятаме - трябва просто да върнем стойността, която стои в самото листо
+calc (ExprNode op left right)
+    | op == '+' = calc left + calc right
+    | op == '-' = calc left - calc right
+    | op == '*' = calc left * calc right
+    | op == '/' = calc left / calc right
+    | op == '^' = calc left ** calc right
+    | otherwise = error "Invalid tree"
+
+-- 2ри вариант - дърво от низове и ползване на функцията read
+expr3 :: BTree String
+expr3 = Node "-" (Node "+" (Leaf "5")
+                           (Node "*" (Leaf "2") 
+                                     (Leaf "5")))
+                 (Leaf "4")
+
+calc' :: BTree String -> Double
+calc' Empty    = 0
+calc' (Leaf x) = read x 
+calc' (Node op left right)
+    | op == "+" = calc' left + calc' right
+    | op == "-" = calc' left - calc' right
+    | op == "*" = calc' left * calc' right
+    | op == "/" = calc' left / calc' right
+    | op == "^" = calc' left ** calc' right
+    | otherwise = error "Invalid tree"
+-- read е нещо като обратната функция на show - докато show взима стойност и я конвертира в низ (който после може да отпечатаме на конзолата чрез print), read взима низ и го конвертира до съответната стойност.
+-- Тук във втория случай на функцията calc' ползваме read - благодарение на сигнатурата на функцията компилатора знае че трябва да се върне Double, и така преобразува низа в стойност от тип Double.
+
+-- Задача 1. Нека имаме типът за цвят 
+data Color = Red | Green | Blue deriving (Read, Show, Eq)
+-- Дефинирайте функция maxDepthBlueNode :: BTree Color -> Int, която намира дълбочината на най-дълбокия (най-отдалечения от корена) връх с цвят Blue на дадено двоично дърво от тип Color.
+colorTree :: BTree Color                                            --            Blue
+colorTree = Node Blue (Node Red (Node Green Empty Empty)            --           /    \
+                                Empty)                              --        Red      Red
+                      (Node Red (Node Blue (Node Green Empty Empty) --        /        /
+                                           (Node Red Empty Empty))  --     Green     Blue
+                                Empty)                              --               /   \
+                                                                    --            Green  Red
+
+maxDepthBlueNode :: BTree Color -> Int
+maxDepthBlueNode tree  = helper tree 1
+    where 
+        helper Empty                  _         = 0
+        helper (Node Blue left right) currDepth = max currDepth (max (helper left (currDepth + 1)) (helper right (currDepth + 1)))
+        helper (Node _    left right) currDepth = max (helper left (currDepth + 1)) (helper right (currDepth + 1))
+
+-- Задача 2. Дефинирайте функция maxDepthNode :: BTree Color -> Color -> Int, която намира дълбочината на най-дълбокия връх с цвят, подаден като аргумент, на дадено двоично дърво от тип Color. 
+maxDepthNode :: BTree Color -> Color -> Int
+maxDepthNode tree color = helper tree 1
+    where 
+        helper Empty _ = 0
+        helper (Node c left right) currDepth 
+            | c == color = max currDepth (max (helper left (currDepth + 1)) (helper right (currDepth + 1)))
+            | otherwise  = max (helper left (currDepth + 1)) (helper right (currDepth + 1))
+
+-- Задача 3. Да се дефинира алгебричен тип NTree а, който да представлява дърво с произволен брой наследника на всеки възел. За него да се дефинира фунцкия size, която брои елементите му
+data NTree a = NEmpty | NNode a [(NTree a)]  
+nTree1 :: NTree Int                               --       1
+nTree1 = NNode 1 [(NNode 2 [(NNode 3 [NEmpty]),   --      / \
+                            (NNode 4 [NEmpty]),   --     2   6
+                            (NNode 5 [NEmpty])]), --    /|\  |
+                  (NNode 6 [(NNode 7 [NEmpty])])] --   3 4 5 7
+
+size :: NTree a -> Int
+size NEmpty             = 0
+size (NNode _ subTrees) = 1 + sum (map size subTrees)
+
+-- Задача 4. Казваме, че едно дърво е грациозно, ако абсолютните стойности на разликите между стойностите на всеки елемент и бащиния му са четни. 
+-- Да се дефинира функция isGraceful :: NTree Int -> Bool, която приема n-арно дърво и проверява дали то е грациозно.
+nTree2 :: NTree Int             --     1
+nTree2 = NNode 1 [NNode 3 [],   --  / / \ \
+                  NNode 5 [],   -- 3 5   7 9
+                  NNode 7 [],   
+                  NNode 9 []]
+                                        --   7
+nTree3 :: NTree Int                     --   |  
+nTree3 = NNode 7 [NNode 9 [NNode 5 [],  --   9
+                           NNode 2 []]] --  / \
+                                        -- 5    2
+isGraceful :: NTree Int -> Bool
+isGraceful NEmpty                  = True
+isGraceful (NNode parent children) = all (checkNode parent) children && all isGraceful children
+    where checkNode parentValue (NNode value _) = even $ abs (parentValue - value)
+
+
+-- Друго представяне на дървета с произволен брой наследници: Асоциативен списък [(а, [а])], където a е типът на върховете на дървото. 
+-- Ключове в списъка са върховете на дървото, а асоциираната с даден ключ стойност е списък от синовете на съответния връх.
+
+-- I. Асоциативен списък, описващ преките наследници (синовете) на върховете, които не са листа.
+-- Задача 5. Да се дефинира функция twoChildrenNodes, която намира броя на върховете в дърво, които имат точно два наследника. 
+t1 = [(4, [2, 5]), (2, [1, 3])]
+{-   4
+    / \
+   2   5
+  / \
+ 1   3   -}
+ 
+hasTwoChildren :: (Int, [Int]) -> Bool
+hasTwoChildren (_, children) = length children == 2
+
+twoChildrenNodes :: [(Int, [Int])] -> Int
+twoChildrenNodes [] = 0
+twoChildrenNodes (node:rest)
+    | hasTwoChildren node = 1 + twoChildrenNodes rest
+    | otherwise           = twoChildrenNodes rest
+
+twoChildrenNodes' :: [(Int, [Int])] -> Int
+twoChildrenNodes' nodes = sum [if hasTwoChildren node then 1 else 0 | node <- nodes]
+
+twoChildrenNodes'' :: [(Int, [Int])] -> Int
+twoChildrenNodes'' nodes = length $ filter hasTwoChildren nodes
+
+-- Задача 6. Да се дефинира функция allHaveTwoChildren, която проверява дали всички върхове (които не са листа) в дървото имат точно по два наследника.
+-- 1ви вариант
+allHaveTwoChildren :: [(Int, [Int])] -> Bool
+allHaveTwoChildren []          = True
+allHaveTwoChildren (node:rest) = hasTwoChildren node && allHaveTwoChildren rest
+-- 2ри вариант
+allHaveTwoChildren' :: [(Int, [Int])] -> Bool
+allHaveTwoChildren' nodes = foldr1 (&&) (map hasTwoChildren nodes) -- чрез map-ването получаваме списък от булеви стойности, след което fold-ваме с логическо 'и' - ако всичките са True, резултата на fold-а също ще е True
+-- 3ти вариант
+allHaveTwoChildren'' :: [(Int, [Int])] -> Bool
+allHaveTwoChildren'' nodes = all hasTwoChildren nodes
+
+-- II. Асоциативен списък, описващ преките наследници (синовете) на всички върхове (включително и листата - за тях списъкът от наследници е празен).
+-- Задача 7. Дефинирайте функция findUncles, която за дадени дърво tree и връх node на tree намира списък от всички чичовци на node в tree.
+t2 = [(1,[2,3,4]),(2,[5,6]),(3,[7]),(4,[8,9]),(5,[]),(6,[10]),(7,[]),(8,[]),(9,[]),(10,[])]
+{-     1 
+  2    3    4
+ 5 6   7   8 9
+    10         -}
+
+findUncles :: [(Int, [Int])] -> Int -> [Int]
+findUncles tree node = if null parent then [] else brothers (head parent)
+    where 
+        parent = [v | (v, vs) <- tree, elem node vs] -- бащата на node е ключът на двойката, в която node присъства като елемент на списъка от наследници
+        brothers v = concat [delete v vs | (_, vs) <- tree, elem v vs] -- тук очакваме всеки връх да е уникален (т.е. да е уникално цяло число), така че v ще се среща само веднъж
+        -- delete е вградена функция от Data.List, която премахва първото срещане на даден елемент в списък. Така премахваме бащата, за да получим само братята му.
+        -- При list comprehension-а всъщност получаваме списък от списъци (който съдържа само един елемент), затова се налага с concat да го превърнем в обикновен списък.
+
+
+
+-- Обратно към двоични дървета.
+-- Задача 8. Казваме, че едно двоично дърво е огледално-симетрично, ако лявото му поддърво е огледален образ на дясното.
+-- Да се дефинира предикат isSymmetric :: BTree Int -> Bool, който проверява дали дадено двоично дърво е огледално-симетрично.
+isSymmetric :: BTree Int -> Bool
+isSymmetric Empty               = True
+isSymmetric (Node _ left right) = areMirrored left right
+    where
+        areMirrored :: BTree Int -> BTree Int -> Bool
+        areMirrored Empty Empty                     = True
+        areMirrored (Node x1 l1 r1) (Node x2 l2 r2) = x1 == x2 && areMirrored l1 r2 && areMirrored r1 l2
+
+t3 :: BTree Int                     --   1
+t3 = Node 1 (Node 2 Empty Empty)    --  / \
+            (Node 3 Empty Empty)    -- 2   3
+
+t4 :: BTree Int                             --     1
+t4 = Node 1 (Node 2 (Node 3 Empty Empty)    --    / \
+                    Empty)                  --   2   2
+            (Node 2 Empty                   --  /     \
+                    (Node 3 Empty Empty))   -- 3       3
+
+t5 :: BTree Int                                     --       1
+t5 = Node 1 (Node 2 (Node 3 Empty Empty)            --    /     \
+                    (Node 7 (Node 5 Empty Empty)    --   2       2
+                            Empty))                 --  / \     / \
+            (Node 2 (Node 7 Empty                   -- 3   7   7   3
+                            (Node 5 Empty Empty))   --    /     \
+                    (Node 3 Empty Empty))           --   5       5
+
+
+-- Задача 9. Да се дефинира функция containsWord :: BTree Char -> String -> Bool, която по дадено двоично дърво от символи и дума, 
+-- съставена от поне една буква, проверява дали думата се среща в дървото, като последният символ от думата е лист в това дърво.
+charTree1 :: BTree Char                                --     a
+charTree1 = Node 'a' (Node 'c' (Node 'f' Empty Empty)  --    / \
+                               (Node 'd' Empty Empty)) --   c   b
+                     (Node 'b' Empty                   --  / \   \
+                               (Node 'e' Empty Empty)) -- f   d   e
+
+-- грешно решение - позволява думи, които не са съставени от последователни върхове - например "af" в горното дърво
+containsWord :: BTree Char -> String -> Bool
+containsWord Empty                 _         = False
+containsWord (Node x Empty Empty) [c]        = x == c -- имаме листо и последната буква на думата, проверяваме дали съвпадат
+containsWord (Node x left right)  str@(c:cs) = if x == c then containsWord left cs || containsWord right cs -- търсим остатъка от думата
+                                                         else containsWord left str || containsWord right str -- търсим цялата дума в поддърветата
+containsWord _                    []         = False -- изчерпали сме думата преди да стигнем до листо
+
+-- за да избегнем това, първо ще дефинираме фунцкия, която търси думи, започващи от корена на дървото и завършващи с листо
+rootWord :: BTree Char -> String -> Bool
+rootWord Empty                _      = False
+rootWord (Node x Empty Empty) [c]    = x == c
+rootWord (Node x left right)  (c:cs) = x == c && (rootWord left cs || rootWord right cs)
+rootWord _                    []     = False
+
+-- за да намерим и думите, които не започват от корена, просто ще извикаме горната функция за всички поддървета, за да видим дали поне едно от тях съдържа думата
+containsWord' :: BTree Char -> String -> Bool
+containsWord' Empty                    _    = False
+containsWord' tree@(Node _ left right) word = rootWord tree word || containsWord' left word || containsWord' right word 
+
+-- Задача 10. Да се дефинира функция genWords :: BTree Char -> [String], която по дадено двоично дърво от символи връща списък от всички думи, съдържащи се в него.
+genWordsStartingFrom :: BTree Char -> [String]
+genWordsStartingFrom Empty                = []
+genWordsStartingFrom (Node c Empty Empty) = [[c]]
+genWordsStartingFrom (Node c left right)  = [c:cs | cs <- genWordsStartingFrom left ++ genWordsStartingFrom right]
+
+genWords :: BTree Char -> [String]
+genWords Empty                  = []
+genWords tree@(Node _ left right) = genWordsStartingFrom tree ++ genWords left ++ genWords right
+
+-- Задача 11. Да се дефинира функция allContain :: [BTree Char] -> [String], която по даден списък от двоични дървета от символи 
+-- връща списък от тези думи, които се съдържат във всички дървета.
+charTree2 :: BTree Char                               --     a
+charTree2 = Node 'a' (Node 'c' (Node 'd' Empty Empty) --    / \
+                               Empty)                 --   c   b
+                     (Node 'b' Empty Empty)           --  /
+                                                      -- d      
+allContain :: [BTree Char] -> [String]
+allContain []     = []
+allContain trees  = foldl1 intersect $ map genWords trees -- първо генерираме списъците от думи на всички дървета, и после взимаме сечението на всички тези списъци като fold-нем с вградената функция intersect.
+
+
+main :: IO()
+main = do
+    -- print $ getExpression expr1 -- -> "((5+(2*5))-4)"
+
+    -- print $ calc expr2  -- -> 11.0
+
+    -- print $ calc' (Leaf "1")          -- -> 1.0
+    -- print $ calc' (Leaf "123.456789") -- -> 123.456789
+    -- print $ calc' expr3               -- -> 11.0
+
+
+    -- print $ maxDepthBlueNode colorTree   -- -> 3
+    -- print $ maxDepthNode colorTree Red   -- -> 4
+    -- print $ maxDepthNode colorTree Green -- -> 4
+    -- print $ maxDepthNode colorTree Blue  -- -> 3
+    
+
+    -- print $ size nTree1 -- -> 7
+    -- print $ isGraceful nTree2 -- -> True
+    -- print $ isGraceful nTree3 -- -> False
+
+
+    -- print $ twoChildrenNodes [(4, [2, 5]), (2, [1, 3])] -- -> 2 (възлите 4 и 2)
+    -- print $ twoChildrenNodes [(10,[3,7,12]),(3,[5,8,9]),(7,[11,13]),(12,[6,4]),(8,[1,2])] -- -> 3 (възлите 7, 12 и 8)
+    
+    -- print $ allHaveTwoChildren [(10,[3,7,12]),(3,[5,8,9]),(7,[11,13]),(12,[6,4]),(8,[1,2])] -- -> False
+    -- print $ allHaveTwoChildren [(4, [2, 5]), (2, [1, 3])] -- -> True
+    
+    -- print $ findUncles t2 5  -- -> [3,4]
+    -- print $ findUncles t2 7  -- -> [2,4]
+    -- print $ findUncles t2 10 -- -> [5]
+    -- print $ findUncles t2 2  -- -> []
+
+
+    -- print $ isSymmetric t3 -- -> False
+    -- print $ isSymmetric t4 -- -> True
+    -- print $ isSymmetric t5 -- -> True
+
+
+    -- print $ containsWord' charTree1 "acd" -- -> True
+    -- print $ containsWord' charTree1 "cd"  -- -> True
+    -- print $ containsWord' charTree1 "ac"  -- -> False
+    -- print $ containsWord charTree1 "af"   -- -> True, а трябва да е False
+    -- print $ containsWord' charTree1 "af"  -- -> False
+ 
+    -- print $ genWords charTree1 -- -> ["acf","acd","abe","cf","cd","f","d","be","e"]
+    -- print $ genWords charTree2 -- -> ["acd","ab","cd","d","b"]
+ 
+    -- print $ allContain [charTree1, charTree2] -- -> ["acd","cd","d"]
+
+--UPR 5 - HS 
+
+import Data.Char(isLetter, isDigit, toUpper)
+import Data.List(isPrefixOf, tails, elemIndex, nub, minimumBy)
+import Data.Maybe(fromJust)
+import Data.Function(on)
+
+-- Задача 1. Нормализация на входните данни - Енигма, както повечето криптиращи машини от това време, е разполагала с клавиатура със само 26-те главни букви от латинската азбука.
+-- Затова, преди да бъдат криптирани, всички съобщения трябвало да бъдат приведени в т. нар. нормален вид: всички числени стойности бивали изписвани словом, всички малки букви ставали главни,
+-- а интервалите и пунктуационните знакове били премахвани или заменяни с кодови комбинации от главни букви (напр. интервалът бил заменян с X и т. н.).
+
+-- Напишете функция normalize message, която нормализира входното съобщение. Правилата за нормализация са следните: 
+-- - всички малки букви стават главни
+-- - ако съобщението съдържа цифри, функцията връща грешка
+-- - всички останали знакове се игнорират
+normalize :: String -> String
+normalize [] = []
+normalize (x:xs)
+    | isDigit x  = error "digits not allowed"
+    | isLetter x = toUpper x : normalize xs
+    | otherwise  = normalize xs
+
+normalize' :: String -> String
+normalize' msg = if any isDigit msg then error "digits not allowed" else map toUpper $ filter isLetter msg
+
+-- Задача 2. Цезаров шифър - Цезаровият шифър е един от най-простите и най-стари методи за криптиране на съобщения. Първото му известно използване е от Юлий Цезар по време на кампаниите му в Галия,
+-- откъдето идва и неговото име. Идеята на Цезаровия шифър е проста: вземаме съобщението, което искаме да шифроваме, и заместваме всяка от буквите в него с буквата, отместена с определен брой позиции в азбуката.
+-- Например, ако отместването е 3, то тогава ‘A’ -> ‘D’, ‘B’ -> ‘E’, ‘C’ -> ‘F,’ ... , ‘X’ -> ‘A’, ‘Y’ -> ‘B’, ‘Z’ -> ‘C’.
+
+-- а) Напишете функция encode alphabet ch offset, която приема списък от знакове alphabet, знак ch и отместване offset и връща знака от alphabet, отместен на offset от ch (по модул дължината на списъкa).
+-- Функцията encode трябва да работи както с положително, така и с отрицателно отместване и да връща грешка, ако ch не е елемент на alphabet.
+-- N.B. Не е задължително буквите в alphabet да са подредени от ‘A’ до ‘Z’, т.е. НЕ може да разчитате на функциите ord и chr!
+encode :: String -> Char -> Int -> Char
+encode alphabet ch offset = if notElem ch alphabet then error ("unsupported symbol: " ++ [ch]) else alphabet!!position
+    where position = (fromJust (elemIndex ch alphabet) + offset) `mod` (length alphabet)
+    -- elemIndex връща стойност от специалния тип Maybe, който се ползва за представяне на опционални стойности, т.е. стойности които може да липсват. Например конкретно за тази функция - търсим индекса на
+    -- даден елемент в списък, но ако той не присъства в списъка, няма как да върнем валидна стойност. Има различни начини за справяне с такива проблеми - един от най-простите, с който може би сте се сблъсквали
+    -- в С/С++, е просто да връщаме -1 или други подобни "невалидни" стойности, но той има доста недостатъци. По-добрите начини са exception-и, или ползването на специални типове както тук.
+    -- Типът Maybe е алгебричен тип с два конструктора - Nothing (представя липсата на стойност) и Just a (опакова стойност от тип 'а'). За да достъпим самата стойност в Just конструктора (все едно да я
+    -- разопаковаме) трябва да ползваме функцията fromJust. elemIndex връща Nothing ако елемента не присъства в списъка в който търсим, и (Just индекса) ако присъства, но тъй като ние викаме position само за
+    -- такива букви, които вече сме проверили че са елементи (тъй като не са изпълнили notElem, not(notElem) === elem), така че може спокойно да извикаме fromJust.
+ 
+-- с типа Maybe може да се справим и чрез pattern match-ване:
+encode' :: String -> Char -> Int -> Char
+encode' alphabet ch offset = helper (elemIndex ch alphabet)
+    where
+        helper Nothing      = error ("unsupported symbol: " ++ [ch])
+        helper (Just index) = alphabet !! ((index + offset) `mod` (length alphabet))
+
+-- б) Напишете функция encrypt alphabet offset normalized, която приема азбука alphabet, отместване offset и съобщение в нормализиран вид и връща съобщението, 
+-- криптирано със съответното отместване.
+encrypt :: String -> Int -> String -> String
+encrypt alphabet offset normalized = [encode alphabet letter offset | letter <- normalized]
+
+-- в) Напишете функция decrypt alphabet offset encrypted, която приема отместване offset и съобщение, криптирано с това отместване, и връща оригиналното съобщение в нормализиран вид.
+-- Можете да използвате факта, че декриптирането на Цезаров шифър с дадено отместване offset е еквивалентно на криптиране с отместване -offset.
+decrypt :: String -> Int -> String -> String
+decrypt alphabet offset encrypted = encrypt alphabet (-offset) encrypted
+
+-- Задача 3. Атака на Цезаровия шифър - Една от основните слабости на Цезаровия шифър се състои в това, че броят на възможните шифри е ограничен до броя на ротациите на буквите в азбуката минус едно. 
+-- Това прави Цезаровия шифър податлив на т. нар. brute force атака, т.е. атака, която генерира всички възможни дешифровки на кодираното съобщение.
+
+-- а) Напишете функцията crackAll alphabet encrypted, която връща списък от всички възможни дешифровки на кодираното съобщение encrypted.
+crackAll :: String -> String -> [String]
+crackAll alphabet encrypted = [decrypt alphabet offset encrypted | offset <- [1 .. (length alphabet - 1)]]
+ 
+-- б) След като сме генерирали всички възможни дешифровки, бихме могли лесно да намерим най-вероятните от тях, използвайки факта, че някои кратки думи, например the, at, on, се срещат много често в
+-- английския език. За тази цел най-напред напишете функция substring sub str, която проверява дали поднизът sub се среща в низа str.
+substring :: String -> String -> Bool
+substring sub str = any (isPrefixOf sub) (tails str)
+
+-- в) Използвайте функциите от предишните две подточки, за да напишете функцията crackCandidates alphabet commonWords encrypted, която приема списък с често срещани думи и криптирано съобщение и
+-- връща списък с потенциални вероятни разшифровки. Една разшифровка се смята за вероятна, ако съдържа поне една от думите от списъка с често срещани думи.
+crackCandidates :: String -> [String] -> String -> [String]
+crackCandidates alphabet commonWords encrypted = [x | x <- crackAll alphabet encrypted, isCandidate x]
+    where isCandidate str = any (`substring` str) commonWords
+ 
+-- Задача 4. Polysubstitution cypher (шифър с множествено заместване) - Един от простите начини да се справим със слабостта на Цезаровия шифър е да разбием съобщението на блокове от по няколко знака и
+-- да криптираме всеки от тях с различен Цезаров шифър, отместен с определена стъпка спрямо предишния.
+
+-- а) Напишете функция polyEncrypt alphabet offset step blockSize normalized, която приема азбука alphabet, първоначално отместване offset, стъпка step и размер на блока blockSize,
+-- както и съобщение в нормализиран вид normalized, и връща криптирано съобщение, първите blockSize знака на което се криптират с отместване offset, следващите blockSize знака – с отместване offset+step и т.н. 
+polyEncrypt :: String -> Int -> Int -> Int -> String -> String
+polyEncrypt _        _      _    _         ""         = ""
+polyEncrypt alphabet offset step blockSize normalized = encrypt alphabet offset (take blockSize normalized) ++ 
+                                                        polyEncrypt alphabet (offset + step) step blockSize (drop blockSize normalized)
+
+-- б) Напишете функция polyDecrypt alphabet offset step blockSize encrypted, която декриптира съобщението от предишната подточка. 
+polyDecrypt :: String -> Int -> Int -> Int -> String -> String
+polyDecrypt alphabet offset step blockSize encrypted = polyEncrypt alphabet (-offset) (-step) blockSize encrypted
+
+-- Задача 5. Емулация на Eнигма - Един от основните компоненти на Енигма е система от ротори, всеки от които може да се моделира като polysubstitution cypher от предната задача. 
+-- Резултатът от всеки от роторите се предава като вход на следващия. Резултатът от последния ротор е криптираното съобщение.
+
+-- а) Напишете функция enigmaEncrypt alphabet rotors normalized, която приема азбука alphabet, списък от ротори (offset, step, blockSize) и съобщение в нормализиран вид normalized и
+-- връща криптираното от роторите съобщение. 
+enigmaEncrypt :: String -> [(Int,Int,Int)] -> String -> String
+enigmaEncrypt _        []                               message    = message
+enigmaEncrypt alphabet ((offset,step,blockSize):rotors) normalized = enigmaEncrypt alphabet rotors (polyEncrypt alphabet offset step blockSize normalized)
+
+-- б) Напишете функция enigmaDecrypt alphabet rotors normalized, която приема азбука, списък от ротори и криптирано съобщение и връща оригиналното съобщение. 
+enigmaDecrypt :: String -> [(Int,Int,Int)] -> String -> String
+enigmaDecrypt _        []                               message    = message
+enigmaDecrypt alphabet ((offset,step,blockSize):rotors) normalized = enigmaDecrypt alphabet rotors (polyDecrypt alphabet offset step blockSize normalized)
+
+
+
+-- Задача 7. Да се дефинира функция transpose :: [[a]] -> [[a]], която получава матрица, представена като списък от списъци и я транспонира.
+transpose :: [[a]] -> [[a]]
+transpose []     = []
+transpose ([]:_) = [] -- трябва да разгледаме този случай, за да си подсигурим че разглеждания ред е непразен, тъй като в следващия случай взимаме head
+transpose xss    = map head xss : transpose (map tail xss) -- Взимаме 1ви стълб, като вземем главите на всички редове. След това продължаваме с остатъка от матрицата - 
+                                                           -- махаме първия ѝ стълб, като вземем опашките на всичките редове.
+                                                           
+-- Задача 8. Да се дефинира функция rotate :: [[a]] -> [[a]], която завърта матрица на прав ъгъл по обратна на часовниковата стрелка посока.
+rotate :: [[a]] -> [[a]]
+rotate = reverse . transpose
+
+-- Задача 9. Да се дефинира функция spiral :: [[a]] -> [a], която обхожда матрица по спирала, започвайки от първия елемент на първия ред и движейки се отвън навътре по посока на часовника до 
+-- изчерпване на членовете (т.е. 1ви ред, последна колона, последен ред наобратно, първа колона наобратно, втори ред, предпоследна колона, ...).
+spiral :: [[a]] -> [a]
+spiral []       = []
+spiral (xs:xss) = xs ++ spiral (rotate xss)
+
+mat :: [[Int]]
+mat = [[1,2,3],
+       [4,5,6],
+       [7,8,9],
+       [10,11,12]]    
+
+-- Задача 10. Нека са дефинирани следните типове:
+type Student = String                    -- име на ученик
+type Subject = String                    -- име на предмет
+type Grade   = Double                    -- оценка
+type Record  = (Student, Subject, Grade) -- запис за ученик, съдържащ име на ученик, учебен предмет и оценката на ученика по дадения предмет.
+-- Дефинирайте функцията hardestSubject :: [Record] -> Subject, която получава списък от записи за учениците от даден клас и връща името на предмета с най-ниска средна оценка за този клас.
+hardestSubject :: [Record] -> Subject
+hardestSubject rs = fst $ minimumBy (compare `on` snd) averagesList -- или foldr1 (\ r1@(_, avg1) r2@(_, avg2) -> if avg1 < avg2 then r1 else r2) averagesList -- 
+    where 
+        getNotes forSubject = [note | (_, subject, note) <- rs, subject == forSubject]
+
+        averagesList = [(subject, average (getNotes subject)) | subject <- nub [subject | (_, subject, _) <- rs ]]
+        average xs = sum xs / fromIntegral (length xs)
+
+r1,r2,r3,r4,r5,r6 :: Record
+r1 = ("Ivan",   "Algebra",  5.5)
+r2 = ("Georgi", "Algebra",  4.0)
+r3 = ("Atanas", "Algebra",  4.25)
+r4 = ("Atanas", "Algebra",  6.0)
+r5 = ("Ivan",   "Geometry", 5.0)
+r6 = ("Georgi", "Geometry", 5.0)
+r7 = ("Atanas", "Geometry", 5.0)
+
+rs :: [Record]
+rs = [r1,r2,r3,r4,r5,r6,r7]
+
+-- Задача 11. Да се дефинира функция calcLuhnChecksum n, която приема целочислен аргумент n и пресмята неговата чексума на Лун. Алгоритъмът на Лун се състои от следните стъпки:
+-- 1. Конструрира се списък lst от цифрите на даденото цяло число (списък от едноцифрените цели числа, записани чрез поредните цифри в десетичния запис на числото).
+-- 2. Обхождат се елементите на lst и тези на четна позиция се умножават по 2 (индексирането в случая започва от 1).
+-- 3. Събират се цифрите на числата, получени на предходната стъпка.
+-- 4. Получената сума се умножава по 9. Резултатът е последната цифра на полученото число.
+-- Повече информация за алгоритъма на Лун, за неговите свойства и приложения може да се намери тук: https://en.wikipedia.org/wiki/Luhn_algorithm.
+-- Пример: Нека разгледаме числото 7992739871.
+-- 1. Цифри                                             -> 7 9  9 2 7 3 9 8  7 1
+-- 2. Удвояване на едноцифрените числа на четни позиции -> 7 18 9 4 7 6 9 16 7 2
+-- 3. Събиране на цифрите                               -> 7 9  9 4 7 6 9 7  7 2
+-- 4. Сумата на числата в клетките от третия ред е 67. 67 * 9 = 603, следователно търсената чексума е 3.
+calcLuhnChecksum :: Int -> Int
+calcLuhnChecksum n = (9 * finalSum) `mod` 10
+    where
+        digitList x = if x < 10 then [x] else digitList (x `div` 10) ++ [x `mod` 10]
+        
+        doubleEven []     _ = []
+        doubleEven (x:xs) i = if even i then 2*x : doubleEven xs (i+1) else x : doubleEven xs (i+1)
+
+        digitSum x = sum $ digitList x
+        finalSum = sum $ map digitSum $ doubleEven (digitList n) 1
+
+
+main :: IO()
+main = do
+    -- print $ normalize "Attack London tommorow at ten a.m." -- -> "ATTACKLONDONTOMMOROWATTENAM"
+    -- print $ normalize "Attack London tommorow at 10 a.m."  -- error: ... digits not allowed
+    -- print $ normalize' "Attack London tommorow at ten a.m." -- -> "ATTACKLONDONTOMMOROWATTENAM"
+    -- print $ normalize' "Attack London tommorow at 10 a.m."  -- error: ... digits not allowed
+
+    -- print $ encode ['A'..'Z'] 'A' 1     -- -> 'B'
+    -- print $ encode ['A'..'Z'] 'C' 2     -- -> 'E'
+    -- print $ encode ['A'..'Z'] 'Z' 3     -- -> 'C'
+    -- print $ encode ['A'..'Z'] 'A' (-1)  -- -> 'Z'
+    -- print $ encode ['A'..'Z'] 'C' (-2)  -- -> 'A'
+    -- print $ encode ['A'..'Z'] 'Z' (-3)  -- -> 'W'
+    -- print $ encode ['A'..'Z'] '@' 1     -- error: ... unsupported symbol: @
+    -- print $ encode ['A'..'Z'] 'a' 1     -- error: ... unsupported symbol: a
+    -- print $ encode ['A','C'..'Z'] 'C' 3 -- -> 'I' (азбуката ни всъщност е A,C,E,G,I,..., така че 3 символа след C е I)
+ 
+    -- print $ encrypt ['A'..'Z'] 5 "ATTACKLONDONTOMORROWATTENAM" -- -> "FYYFHPQTSITSYTRTWWTBFYYJSFR"
+    -- print $ decrypt ['A'..'Z'] 5 "FYYFHPQTSITSYTRTWWTBFYYJSFR" -- -> "ATTACKLONDONTOMORROWATTENAM"
+
+    -- print $ crackAll ['A'..'Z'] "FYYFHPQTSITSYTRTWWTBFYYJSFR" 
+    {- -> ["EXXEGOPSRHSRXSQSVVSAEXXIREQ","DWWDFNORQGRQWRPRUURZDWWHQDP","CVVCEMNQPFQPVQOQTTQYCVVGPCO","BUUBDLMPOEPOUPNPSSPXBUUFOBN","ATTACKLONDONTOMORROWATTENAM",
+    "ZSSZBJKNMCNMSNLNQQNVZSSDMZL","YRRYAIJMLBMLRMKMPPMUYRRCLYK","XQQXZHILKALKQLJLOOLTXQQBKXJ","WPPWYGHKJZKJPKIKNNKSWPPAJWI","VOOVXFGJIYJIOJHJMMJRVOOZIVH",
+    "UNNUWEFIHXIHNIGILLIQUNNYHUG","TMMTVDEHGWHGMHFHKKHPTMMXGTF","SLLSUCDGFVGFLGEGJJGOSLLWFSE","RKKRTBCFEUFEKFDFIIFNRKKVERD","QJJQSABEDTEDJECEHHEMQJJUDQC",
+    "PIIPRZADCSDCIDBDGGDLPIITCPB","OHHOQYZCBRCBHCACFFCKOHHSBOA","NGGNPXYBAQBAGBZBEEBJNGGRANZ","MFFMOWXAZPAZFAYADDAIMFFQZMY","LEELNVWZYOZYEZXZCCZHLEEPYLX",
+    "KDDKMUVYXNYXDYWYBBYGKDDOXKW","JCCJLTUXWMXWCXVXAAXFJCCNWJV","IBBIKSTWVLWVBWUWZZWEIBBMVIU","HAAHJRSVUKVUAVTVYYVDHAALUHT","GZZGIQRUTJUTZUSUXXUCGZZKTGS"] -}
+    -- print $ substring "Haskell" "Haskell Curry" -- -> True
+    -- print $ substring "Curry" "Haskell Curry"   -- -> True
+    -- print $ substring "Turing" "Haskell Curry"  -- -> False
+    -- print $ crackCandidates ['A'..'Z'] ["THE","AND","AT","ON","IS"] "FYYFHPQTSITSYTRTWWTBFYYJSFR" -- -> ["ATTACKLONDONTOMORROWATTENAM"]
+ 
+    -- print $ polyEncrypt ['A'..'Z'] 5 1 7 "ATTACKLONDONTOMORROWATTENAM" -- -> "FYYFHPQUTJUTZUTVYYVDHBBMVIU"
+    -- print $ polyDecrypt ['A'..'Z'] 5 1 7 "FYYFHPQUTJUTZUTVYYVDHBBMVIU" -- -> "ATTACKLONDONTOMORROWATTENAM"
+    -- print $ enigmaEncrypt ['A'..'Z'] [(5,1,1),(7,2,10),(13,3,25)] "ATTACKLONDONTOMORROWATTENAM" -- -> "ZTUCFOQUULZZGCBEIJHQXRSEOFS"
+    -- print $ enigmaDecrypt ['A'..'Z'] [(5,1,1),(7,2,10),(13,3,25)] "ZTUCFOQUULZZGCBEIJHQXRSEOFS" -- -> "ATTACKLONDONTOMORROWATTENAM"
+
+
+    -- print $ transpose mat   -- -> [[1,4,7,10],
+    --                         --   [2,5,8,11],
+    --                         --   [3,6,9,12]]
+                    
+    -- print $ rotate mat      -- -> [[3,6,9,12],
+    --                         --   [2,5,8,11],
+    --                         --   [1,4,7,10]]
+                 
+    -- print $ spiral mat      -- -> [1,2,3,6,9,12,11,10,7,4,5,8]
+
+    -- print $ hardestSubject rs  -- -> "Algebra"
+
+    -- print $ calcLuhnChecksum 7992739871 -- -> 3
+    -- print $ calcLuhnChecksum 343577563  -- -> 2
+    -- print $ calcLuhnChecksum 645652345  -- -> 3
+    -- print $ calcLuhnChecksum 3453       -- -> 8
+
+EXAM - HS
+
+import Data.Char(isLower, isUpper, toLower, toUpper, ord)
+import Data.List(nub, sort, group, groupBy, maximumBy)
+
+-- Задача 1. Да се напише на езика Haskell функция reverseOrdSuff :: Int -> Int, която по дадено естествено число k намира число, получено от цифрите на най-дългия строго низходящ суфикс на k,
+-- взети в обратен ред.
+reverseOrdSuff :: Int -> Int
+reverseOrdSuff n = listToInt $ increasingPrefix $ intToListInReverse n -- низходящ суфикс, взет в обратен ред === възходящ префикс на цифрите в обратен ред
+    where
+        intToListInReverse n = if n < 10 then [n] else n `mod` 10 : intToListInReverse (n `div` 10)
+
+        increasingPrefix []         = []
+        increasingPrefix [x]        = [x]
+        increasingPrefix (x1:x2:xs) = if (x1 >= x2) then [x1] else x1 : increasingPrefix (x2:xs)
+
+        listToInt xs = foldl (\ num rest -> 10*num + rest) 0 xs
+        listToInt' xs = (read . concatMap show) xs -- xs е списък от цифри. show в този случай ще конвертира числа към низове, а concatMap ще приложи show към всеки елемент на xs,
+        -- като така ще се получи списък от низове (всеки представляващ една цифра), и след това ще ги конкатенира, като така ще се получи низ от цифрите на числото.
+        -- Накрая read ще конвертира този низ към самото число.
+
+-- Задача 2. Да се напише на Haskell функция sumUnique :: [[Int]] -> Int, която по списък от списъци от цели числа намира сумата на тези от числата, които са уникални в рамките на списъка, в който се срещат.
+sumUnique :: [[Int]] -> Int
+sumUnique xss = sum $ concat [uniques xs []| xs <- xss]
+    where
+        uniques [] checked     = []
+        uniques (x:xs) checked = if notElem x xs && notElem x checked then x : uniques xs (x:checked) else uniques xs (x:checked)
+
+sumUnique' :: [[Int]] -> Int
+sumUnique' = sum . concat . map unique
+    where unique = concat . filter ((==1) . length) . group . sort -- намираме елементите които се срещат точно веднъж в списъка - първо сортираме, за да може елементите които се срещат многократно да
+    -- са подредени, така че group да върни списък от списъци, всеки от които съдържа всичките срещания на даден елемент. Чрез filter взимаме само спъсицте на елементи които се срещат само веднъж,
+    -- и накрая с concat получаваме списък от тях
+
+-- Задача 3 -> Задачи 11 и 12 от Упражнение 11.
+
+-- Задача 4. Нека е даден списък от точки в тримерно пространство, представен като списък от наредени тройки.Да се напише на Haskell функция minDistance :: [(Double,Double,Double)] -> Double,
+-- която намира най-малкото от разстоянията между двойките точки от списъка. Разстоянието d се дeфинира по следния начин: ако разглеждаме точките p1=(x1, y1, z1) и p2=(x2, y2, z2), то
+-- d(p1, p2) = (x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)+(z1-z2)*(z1-z2).
+minDistance :: [(Double,Double,Double)] -> Double
+minDistance xs = minimum [distance p1 p2 | p1 <- xs, p2 <- xs, p1 /= p2] -- изграждаме списък от всички двойки различни точки, за всяка двойка изчисляваме съответното разстояние, и взимаме минималното
+    where distance (x1,y1,z1) (x2,y2,z2) = (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2) + (z1-z2)*(z1-z2)
+
+-- Задача 5. Да се напише на Haskell функция reduceStr str, която за даден символен низ str връща негов редуциран вариант, получен в резултат на последователно взаимно унищожаване на двойки съседни знакове,
+-- които представляват съответно главен и малък (или малък и главен) вариант на една и съща буква от латиницата. Правилото за взаимно унищожаване на съответни главни и малки (или малки и главни) букви се
+-- изпълнява многократно, докато е възможно, върху резултата от последното му прилагане. Всички останали знакове в низа остават непроменени.
+reduceStr :: String -> String
+reduceStr str = if str == reduced then str else reduceStr reduced
+    where
+        reduced = reduce str []
+
+        reduce []  result = result
+        reduce [c] result = result ++ [c]
+        reduce (c1:c2:str) result
+            | isLower c1 && isUpper c2 && c1 == toLower c2 = result ++ str
+            | isUpper c1 && isLower c2 && c1 == toUpper c2 = result ++ str
+            | otherwise                                    = reduce (c2:str) (result ++ [c1])
+
+reduceStr' :: String -> String
+reduceStr' str = if str == reduced then str else reduceStr' reduced
+    where
+        reduced = reduce str
+
+        diff = ord 'a' - ord 'A'
+        reduce = concat . (filter ((==1) . length)) . (groupBy (\ a b -> abs (ord a - ord b) == diff))
+        -- groupBy работи подобно на group, но не сравнява елементите директно по (==), а по подаден от нас предикат. В този случай смятаме две букви за равни, ако са на разстояние diff една от друга - 
+        -- това е разстоянието между малка и главна буква в ASCII таблицата. Тоест след групирането ще имаме списък от списъци, който съдържа двуелементни списъци от двойките които искаме да унищожим,
+        -- и едноелементни списъци от останалите букви. Чрез filter махаме двойките, и чрез concat получаваме обикновен низ.
+
+-- Задача 6. Да се дефинира функция maximize :: (Ord a, Num a) => [(a -> a)] -> (a -> a), за която оценката на обръщението maximize l, където l е непразен списък от едноместни числови функции, да е
+-- едноместна числова функция на аргумент x, която дава стойността f(x) на тази фунция f от списъка l, за която числото f(x) е най-голямо по абсолютна стойност
+maximize :: (Ord a, Num a) => [(a -> a)] -> (a -> a)
+maximize fs = \x -> snd $ maximumBy compareFunctions [(abs (f x), f x) | f <- fs]
+    where compareFunctions v1@(abs1, _) v2@(abs2, _) = compare abs1 abs2
+
+-- Задача 7. Функцията g е обратна на функцията f в дадено множество А, ако f . g = id в A и g . f = id в A. Да се напише на езика Haskell функция inverseFun :: (Int -> Int) -> (Int -> Int) -> Int -> Int -> Bool,
+-- която за дадени целочислени функции f и g връща True точно когато g е обратна на f в даден целочислен интервал [a, b].
+inverseFun :: (Int -> Int) -> (Int -> Int) -> Int -> Int -> Bool
+inverseFun f g a b
+    | a > b                            = True
+    | (f . g) a == a && (g . f) a == a = inverseFun f g (a + 1) b
+    | otherwise                        = False
+ 
+inverseFun' :: (Int -> Int) -> (Int -> Int) -> Int -> Int -> Bool
+inverseFun' f g a b = map (f . g) interval == interval && map (g . f) interval == interval
+    where interval = [a..b]
+
+inverseFun'' :: (Int -> Int) -> (Int -> Int) -> Int -> Int -> Bool
+inverseFun'' f g a b = all (\ x -> (f . g) x == x && (g . f) x == x) [a..b]
+
+
+-- Задача 8. Нека е дефиниран алгебричен тип
+data BTree = NullT | Node (Float,Float) BTree BTree --, който се използва за представяне на двоично дърво от двойки от реални числа, задаващи начала и краища на числови интервали
+-- (предполага се, че първият елемент на всяка двойка е по-малък от нейния втори елемент). Напишете на езика Haskell функция orderedTree tree, която проверява дали дадено двоично дърво tree от тип BTree
+-- е наредено относно релацията „подинтервал”.
+tree1 = Node (3.0,10.0) (Node (5.0,8.0) (Node (6.0,7.0) NullT NullT)    --       (3,10)
+                                        (Node (4.0,9.0) NullT NullT))   --       /    \
+                        (Node (2.0,12.0) NullT                          --    (5,8)  (2,12)
+                                        (Node (1.0,15.0) NullT NullT))  --    /  \      \
+                                                                        -- (6,7) (4,9) (1,15)
+ 
+tree2 = Node (3.0,10.0) (Node (5.0,8.0) (Node (6.0,7.0) NullT NullT)    --       (3,10)
+                                        (Node (7.0,9.0) NullT NullT))   --       /    \
+                        (Node (2.0,12.0) NullT                          --    (5,8)  (2,12)
+                                        (Node (1.0,15.0) NullT NullT))  --    /  \      \
+                                                                        -- (6,7) (7,9) (1,15)
+
+subInterval :: (Float, Float) -> (Float, Float) -> Bool
+subInterval (a1, b1) (a2, b2) = a2 <= a1 && b1 <= b2 -- проверка дали първият аргумент е подинтервал на втория
+
+orderedTree :: BTree -> Bool
+orderedTree NullT                                                                           = True
+orderedTree (Node _            NullT                        NullT)                          = True
+orderedTree (Node rootInterval left@(Node leftInterval _ _) NullT)                          = leftInterval `subInterval` rootInterval  && orderedTree left
+orderedTree (Node rootInterval NullT                        right@(Node rightInterval _ _)) = rootInterval `subInterval` rightInterval && orderedTree right
+orderedTree (Node rootInterval left@(Node leftInterval _ _) right@(Node rightInterval _ _)) = leftInterval `subInterval` rootInterval && rootInterval `subInterval` rightInterval && 
+                                                                                              orderedTree left && orderedTree right
+
+
+main :: IO()
+main = do
+    -- print $ reverseOrdSuff 37563 -- -> 36
+    -- print $ reverseOrdSuff 32763 -- -> 367
+    -- print $ reverseOrdSuff 32567 -- -> 7
+    -- print $ reverseOrdSuff 32666 -- -> 6
+    
+    -- print $ sumUnique [[1,2,3,2],[-4,-4],[5]]   -- -> 9 (= 1+3+5)
+    -- print $ sumUnique [[2,2,2],[3,3,3],[4,4,4]] -- -> 0
+    -- print $ sumUnique [[1,2,3],[4,5,6],[7,8,9]] -- -> 45
+        
+    -- print $ minDistance [(1,1,1), (1,2,1), (2,2,2)]                -- -> 1.0
+    -- print $ minDistance [(0,0,0), (1,1,1), (2,2,2), (0.2,0.2,0.2)] -- -> 0.12000000000000002
+    
+    -- print $ reduceStr' "dabAcCaCBAcCcaDD" -- -> "dabCBAcaDD"
+    -- print $ reduceStr' "abcdDCBA"         -- -> 
+    -- print $ reduceStr' "aabbccddAABBCCDD" -- -> "aabbccddAABBCCDD"
+    
+    -- print $ (maximize [(\x -> x*x*x),(\x -> x+1)]) 0.5  -- -> 1.5
+    -- print $ (maximize [(\x -> x*x*x),(\x -> x+1)]) (-2) -- -> -8.0
+    
+    -- print $ inverseFun (\x -> x+1) (\x -> x-1) 5 10 -- -> True
+    -- print $ inverseFun (\x -> x*x) (\x -> x^3) 0 1  -- -> True
+    -- print $ inverseFun (\x -> x+1) (\x -> x+2) 0 1  -- -> False
+    
+    -- print $ orderedTree tree1 -- -> True
+    -- print $ orderedTree tree2 -- -> False
+
+
+--UPR 6 - HS
+
+--  Упражнение 15: Безкрайни списъци
+-- iterate многократно прилага функция, създавайки списък от резултатите [x, f x, f (f x), f (f (f x)), ...]
+iterate' :: (a -> a) -> a -> [a]
+iterate' f x = x : iterate' f (f x)
+-- тук нямаме дъно на рекурсията, тоест резултатният списък ще е безкраен
+
+-- Как например да получим списък от всички естествени числа?
+-- Като започнем от нулата и многократно добавяме единица.
+nats = iterate (+1) 0
+-- Това е безкраен списък [0, 1, 2, 3, 4, 5,...]. Ако например се опитаме да му вземем length, ще се получи бездънна рекурсия, 
+-- тъй като length никога няма да стигне до празен списък, т.е. няма да стигне до дъното на рекурсията и следователно няма да приключи изпълнението си.
+
+-- Но Haskell използва lazy evaluation - оценява само когато е нужно. Така ако искаме да вземем първите 10 елемента на списъка, то може да използваме take без проблем.
+-- Ще бъде оценена само началната част на списъка до 10тия елемент. Останалите (безкрайно много) елементи все още не са оценени, и следователно не създават проблем.
+
+-- Може да генерираме безкрайни списъци и с list comprehension.
+nats' = [0..]
+
+
+-- Как да генерираме списък от всички прости числа?
+-- Първо ни трябва предикат, който проверява дали число е просто.
+divides :: Integer -> Integer -> Bool
+divides x y = y `rem` x == 0
+
+divisors :: Integer -> [Integer]
+divisors x = [y | y <- [1..x], y `divides` x]
+
+isPrime :: Integer -> Bool 
+isPrime x = [1, x] == divisors x -- число е просто, ако единствените му делители са 1 и самото число
+
+-- Сега като знаем как да проверим дали дадено число е простo и имаме всичките (естествени) числа, може да направим:
+primes :: [Integer]
+primes = [p | p <- tail nats, isPrime p] -- взимаме tail, за да прескочим нулата
+-- -> [2, 3, 5, 7, 11,...]
+
+-- Ефективен (но не най-ефективния) начин за генериране на прости числа е решето на Ератостен: https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes
+sieve :: [Integer] -> [Integer]
+sieve []     = []
+sieve (x:xs) = x : sieve [y | y <- xs, y `mod` x > 0]
+
+primes' :: [Integer]
+primes' = sieve [2..]
+
+
+-- Как да генерираме списък от всичките факториели? ([1!, 2!, 3!, ...])
+-- Първо може просто да map-нем списъка nats.
+facts :: [Integer]
+facts = map (\ n -> product [1..n]) [1..] -- тук пропускаме нулата
+-- Но това ще е доста бавно - за всяко число ще генерираме списъка от всички числа между 1 и самото него и ще ги умножаваме.
+-- Имаме че n! = n * (n-1)!, но как може да го използваме?
+-- Нека умножим всичките ествествени числа: 1*2*3*4*... - това може да получим с foldl (*) [1..] 
+-- (дефакто няма да получим краен резултат - няма как да умножим безкрайно много числа).
+
+-- Сега от това бекрайно умножение нека "изрежем" сегмента от 1 до n. Ще получим 1*2*3*...*(n-1)*n, което е точно n!.
+-- Тоест искаме да fold-нем, но не само да сметнем финален резултат, а да имаме и междинни стойности. За тази цел има вградени функции scanr и scanl,
+-- които са доста подобни като код на съответните им fold-ове.
+foldl' :: (b -> a -> b) -> b -> [a] -> b
+foldl' _ v []     = v
+foldl' f v (x:xs) = foldl' f (v `f` x) xs
+
+scanl' :: (b -> a -> b) -> b -> [a] -> [b] -- връщаме списък, а не само един краен резултат
+scanl' _ v []     = [v]
+scanl' f v (x:xs) = v : scanl' f (v `f` x) xs -- освен рекурсивното извикване имаме и добавяме към списъка
+-- Предимство на foldl е, че аргументът, служещ за начална стойност всъщност след първата стъпка се ползва точно за съхраняване на междинна стойност.
+
+facts' :: [Integer]
+facts' = scanl (*) 1 [2..] -- ако списъкът е [1..] се получава една излишна единица в началото
+
+facts'' = scanl1 (*) [1..] -- знаем че списъкът е непразен, и както при fold-овете има варианти на scan за непразни списъци които не изискват начална стойност
+
+-- Как да генерираме списък от всички числа на Фибоначи?
+-- Нека първо си припомним как генерираме конкретно n-то число на Фибоначи.
+fib :: Integer -> Integer
+fib 0 = 1
+fib 1 = 1
+fib n = fib (n - 1) + fib (n - 2)
+
+-- Първо може да пробваме да ги получим от списъка nats, който вече имаме,
+fibs :: [Integer]
+fibs = map fib nats
+-- но както при факториелите, това е доста бавно - за всяко число n ще смятаме от нулата съответното му n-то число на Фибоначи,
+-- без да ползваме, че има връзка между следващото и предишното.
+
+-- Имаме, че първите 2 числа на Фибоначи са 1 и 1, и всяко следващо се получава от миналите 2
+-- Нека имаме списък на числата на Фибоначи до например 6тото. Сега да вземем още едно копие на този списък и да го "отместим" наляво
+--   [1,1,2,3,5,8]
+-- [1,1,2,3,5,8]
+-- и сега ги сумираме поелементно, като игнорираме частите най-отляво и най-отдясно (които нямат съответен елемент от другия списък)
+--   [2,3,5,8,13]
+-- Накрая на резултатния списък получихме следващото число на Фибоначи. Ако приложим същата идея отново ще получим 21 като 13 + 8, и ако продължаваме 
+-- на всяка стъпка ще получаваме по още едно число на Фибоначи.
+
+-- Как може да реализираме това поелементно събиране? Първо за да извършваме операции върху двойки елементи на 2 списъка ползваме zipWith.
+zipWith' :: (a -> b -> c) -> [a] -> [b] -> [c]
+zipWith' _ []     _      = []
+zipWith' _ _      []     = []
+zipWith' f (a:as) (b:bs) = f a b : zipWith' f as bs
+
+fibs' = 1 : 1 : zipWith (+) fibs' (tail fibs')
+-- Започваме със списък от две единици. С tail fibs' всъщност симулираме "отместването", споменато по-горе - тук просто махаме първия елемент.
+-- [1,1,2,3,5,8]
+-- [1,2,3,5,8]
+-- zipWith (+)
+-- [2,3,5,8,13]
+-- С всяко рекурсивно извикване ще генерираме по още едно число, и така до безкрайност.
+
+
+-- Пирагорова тройка е тройка от числа, които могат да бъдат страни на правоъгълен триъгълник, тоест удовлетворяват тъждеството от Питагоровата теорема.
+pythagTriples :: [(Int,Int,Int)]
+pythagTriples = [(x, y, z) | x <- [2..], y <- [x+1..], z <- [y+1..], x*x + y*y == z*z]
+-- това няма да работи, тъй като имаме няколко безкрайни генератора - ще изберем стойностите x=2, y=2+1=3, z=y+1=4, които не удовлетворяват равенството,
+-- следователно ще изберем следваща стойност на z, и следваща, и следваща, и т.н. до безкрайност - когато имаме няколко безкрайни генератора, 
+-- то последният от тях се върти до безкрайност и другите не успяват да направят нищо.
+
+pythagTriples' :: [(Int,Int,Int)]
+pythagTriples' = [(x, y, z) | z <- [2.. ], y <- [2..z-1], x <- [2..y-1], x*x + y*y == z*z]
+-- така вече ще работи, тъй като имаме само един безкраен генератор - този за z. Стойностите на x и y са ограничени от z, и така техните генератори са крайни.
+
+-- member е фунцкия, която проверява дали даден елемент принадлежи на списък
+member :: Eq a => a -> [a] -> Bool
+member _ []     = False
+member x (y:ys) = if x == y then True else member x ys
+-- но ако списъка е безкраен и елемента не принадлежи, то функцията никога няма да завърши, т.к. никога няма да стигне до []
+
+-- Ако безкрайният списък е сортиран, то може да търсим в него без да имаме проблем ако елемента не присъства
+memberOrd :: Ord a => a -> [a] -> Bool
+memberOrd x (y:ys)
+    | x > y     = memberOrd x ys
+    | x == y    = True
+    | otherwise = False -- елементът x, който търсим, е < от текущия елемент на списъка, но списъкът е сортиран, така че x ще е < и от всички следващи елементи, и
+                        -- следователно няма да присъства в списъка
+
+
+main :: IO()
+main = do
+    --print $ take 10 nats   -- -> [0,1,2,3,4,5,6,7,8,9]
+    --print $ take 10 nats'
+ 
+    --print $ take 10 primes -- -> [2,3,5,7,11,13,17,19,23,29]
+    --print $ take 10 primes'
+ 
+    --print $ take 10 facts -- -> [1,1,2,6,24,120,720,5040,40320,362880]
+    --print $ take 10 facts'
+    --print $ take 10 facts''
+ 
+    --print $ take 10 fibs  -- -> [1,1,2,3,5,8,13,21,34,55]
+    --print $ take 10 fibs'
+ 
+    --print $ take 3 pythagTriples' -- -> [(3,4,5),(6,8,10),(5,12,13)]
+ 
+    --print $ member 3 [1,3..]    -- -> True
+    --print $ member 2 [1,3..]    -- бездънна рекурсия!!! - трябва ръчно да се спре изпълнението на кода
+    --print $ memberOrd 2 [1,3..] -- -> False
+ 
