@@ -2,11 +2,12 @@
 #include<algorithm>
 using namespace std;
 
-// July 2010, Ex.3
-
-bool areAnagrams(string str1, string str2)
+bool isAnagram(string str1, string str2)
 {
-    if (str1.size() != str2.size()) return false;
+    int sizeStr1 = str1.size();
+    int sizeStr2 = str2.size();
+
+    if (sizeStr1 != sizeStr2) return false;
 
     sort(str1.begin(), str1.end());
     sort(str2.begin(), str2.end());
@@ -14,36 +15,31 @@ bool areAnagrams(string str1, string str2)
     return str1 == str2;
 }
 
-int countAnagrams(const char* word, int size, const char* words[])
+int longestAnagramsCount(const char* input[], int n)
 {
-    int result = 0;
-    for (int i = 0; i < size; i++)
+    int max = 0;
+    for (int i = 0; i < n; i++)
     {
-        if (areAnagrams(word, words[i])) ++result;
-    }
-
-    return result;
-}
-
-int longestAnagramsCount(int size, const char* words[])
-{
-    int maxAnagrams = 0;
-
-    for (int i = 0; i < size; i++)
-    {
-        const int anagramsCount = countAnagrams(words[i], size, words);
-        if (anagramsCount > maxAnagrams)
+        int currMax = 0;
+        for (int j = 0; j < n; j++)
         {
-            maxAnagrams = anagramsCount;
+            if (isAnagram(input[i], input[j]))
+            {
+                currMax++;
+                if (currMax > max)
+                {
+                    max = currMax;
+                }
+            }
         }
     }
 
-    return maxAnagrams;
+    return max;
 }
 
 int main()
 {
-    const char* input[]{ "string", "ginrts", "ringst", "strong", "spong",  "shpong", "pongs" };
+    const char* input[] = { "string", "ginrts", "ringst", "strong", "spong",  "shpong", "pongs" };
 
-    cout << longestAnagramsCount(7, input) << endl;
+    cout << longestAnagramsCount(input, 7) << endl; // 3
 }

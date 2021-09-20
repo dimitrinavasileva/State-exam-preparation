@@ -1,48 +1,38 @@
-#include <iostream>
-#include <unordered_map>
-#include <string>
-
+#include<iostream>
 using namespace std;
 
-
-// August 2020, Ex. 1
 void print_backwards(const char* begin, const char* end)
 {
-	if (begin >= end)
-	{
-		return;
-	}
-	if (*begin <= 32)
-	{
-		print_backwards(begin + 1, end);
-	}
-	else
-	{
-		const char* word_end;
-		for (word_end = begin; *word_end > 32 && word_end < end; ++word_end);
+    if (end < begin) return;
 
-		print_backwards(word_end, end);
+    const char* iter_begin = begin;
+    int n = 0;
 
-		if (word_end < end)
-		{
-			cout << " ";
-		}
+    while (*begin != '\0' && *begin > 32 && begin != end)
+    {
+        begin++;
+        n++;
+    }
+    begin++;
 
-		for (const char* it = begin; it < word_end; it++)
-		{
-			cout << *it;
-		}
-	}
+    print_backwards(begin, end);
+    for (int i = 0; i < n; i++)
+    {
+        cout << *iter_begin;
+        iter_begin++;
+    }
+    cout << " ";
 }
 
 void print_backwards(const char* string)
 {
-	print_backwards(string, string + strlen(string));
+    int size = strlen(string);
+    print_backwards(string, string + size);
 }
 
 int main()
 {
-	const char* sentence = "I\tneed a break!";
-	print_backwards(sentence);
-	return 0;
+    const char* sentence = "I\tneed a break!";
+    print_backwards(sentence);
+    return 0;
 }

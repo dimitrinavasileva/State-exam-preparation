@@ -1,10 +1,8 @@
 #include <string.h>
-
 #include <iostream>
 #include <string>
 using namespace std;
 
-// Sept 2018, ex. 1
 
 void validate(const char** library[], int m, int n)
 {
@@ -78,10 +76,6 @@ int main()
     const char* row2[] = { "Data structures", "Introduction to programming", "Object oriented programming" };
     const char* row3[] = { "Data bases", "Artifical intelligence", "Functional programming" };
     const char** library[] = { row1, row2, row3 };
-
-    // We should print "Analytical Geometry" and "Introduction to programming" as
-    // password, which gives us '10 8 12 2 11'. The 3rd row should be skipped,
-    // since it is not sorted alphabetically
 
     revealPassword(library, 3, 3);
 }
