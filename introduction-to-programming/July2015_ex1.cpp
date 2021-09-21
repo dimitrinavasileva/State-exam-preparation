@@ -1,15 +1,15 @@
 #include <iostream>
 #include <string>
 
-bool isInMatrix(int x, int y, int m, int n) 
+bool isInMatrix(int x, int y, int rows, int cols)
 {
-    return 0 <= x && x <= m - 1 && 0 <= y && y <= n - 1;
+    return 0 <= x && x <= rows - 1 && 0 <= y && y <= cols - 1;
 }
 
-void subsample(float img[][10], int m, int n) 
+void subsample(float img[][10], int rows, int cols)
 {
-    const int sM = (m + 1) / 2;
-    const int sN = (n + 1) / 2;
+    const int sM = (rows + 1) / 2;
+    const int sN = (cols + 1) / 2;
 
     for (int i = 0; i < sM; i++)
     {
@@ -21,7 +21,7 @@ void subsample(float img[][10], int m, int n)
             {
                 for (int x = j * 2; x <= j * 2 + 1; x++)
                 {
-                    if (isInMatrix(y, x, m, n))
+                    if (isInMatrix(y, x, rows, cols))
                     {
                         countElems++;
                         sum += img[y][x];
@@ -34,11 +34,11 @@ void subsample(float img[][10], int m, int n)
     }
 }
 
-int main() 
+int main()
 {
     float img[10][10]{ {1.0, 2.0, 3.0}, {4.5, 6.5, 7.5} };
 
     subsample(img, 2, 3);
-	
-	return 0;
+
+    return 0;
 }

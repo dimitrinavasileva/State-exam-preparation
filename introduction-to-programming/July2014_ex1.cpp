@@ -2,14 +2,14 @@
 #include<vector>
 using namespace std;
 
-constexpr int N = 3;
-constexpr int M = 3;
+constexpr int ROWS = 3;
+constexpr int COLS = 3;
 
 
-bool walk(int matrix[N][M], int i, int j, const char* str, bool result)
+bool walk(int matrix[ROWS][COLS], int i, int j, const char* str, bool result)
 {
-    if (*str == '\0' && i == N - 1 && j == M - 1) return true;
-    if (i < 0 || j < 0 || i > N - 1 || j > M - 1 || matrix[i][j] == 0) return false;
+    if (*str == '\0' && i == ROWS - 1 && j == COLS - 1) return true;
+    if (i < 0 || j < 0 || i > ROWS - 1 || j > COLS - 1 || matrix[i][j] == 0) return false;
 
     if (*str == 'S')
     {
@@ -32,11 +32,11 @@ bool walk(int matrix[N][M], int i, int j, const char* str, bool result)
 }
 
 
-bool check(int matrix[N][M], const char* str)
+bool check(int matrix[ROWS][COLS], const char* str)
 {
-    for (int i = 0; i < N; i++)
+    for (int i = 0; i < ROWS; i++)
     {
-        for (int j = 0; j < M; j++)
+        for (int j = 0; j < COLS; j++)
         {
             if (matrix[i][j] == 1)
             {
@@ -49,7 +49,7 @@ bool check(int matrix[N][M], const char* str)
 
 int main()
 {
-    int matrix[N][M] = { {1, 0 ,0},
+    int matrix[ROWS][COLS] = { {1, 0 ,0},
                         {1, 0, 1},
                         {1, 1, 1} };
 

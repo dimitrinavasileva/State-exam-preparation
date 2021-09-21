@@ -2,8 +2,6 @@
 using namespace std;
 
 //Solution 1
-#include<iostream>
-using namespace std;
 
 struct Position
 {
@@ -21,7 +19,7 @@ void maxDistance(const char* str)
     for (int i = 0; i < size; i++)
     {
         char curr = str[i];
-        for (int j =  i + 1; j < size; j++)
+        for (int j = i + 1; j < size; j++)
         {
             if (curr == str[j])
             {
@@ -48,11 +46,11 @@ int findPositionOfMostDistantEqualSymbol(int startPos, const char* str)
 
     int result = startPos;
 
-    for (int i = startPos; i < length; i++)
-	{
+    for (int i = startPos; i < size; i++)
+    {
         char currentSymbol = str[i];
         if (symbol == currentSymbol)
-		{
+        {
             result = i;
         }
     }
@@ -67,13 +65,13 @@ pair<int, int> getPositionsOfMostDistantEqualSymbols(const char* str)
     int secondPos = 0;
 
     for (int pos = 0; pos < size; pos++)
-	{
+    {
         char currentSymbol = str[pos];
 
         int mostDistantEqualSymbolPos = findPositionOfMostDistantEqualSymbol(pos, str);
 
         if (mostDistantEqualSymbolPos - pos > secondPos - firstPos)
-		{
+        {
             firstPos = pos;
             secondPos = mostDistantEqualSymbolPos;
         }
@@ -84,12 +82,11 @@ pair<int, int> getPositionsOfMostDistantEqualSymbols(const char* str)
 
 int main()
 {
-	// Return value should be pair <4, 21>, the symbol space ' ' is on position 4
+    // Return value should be pair <4, 21>, the symbol space ' ' is on position 4
     // and 21, with distance 17 between them, which is the longest in our example
-	
-	maxDistance(str);
-	
-    pair<int, int> testPositions = getPositionsOfMostDistantEqualSymbols("this is just a simple example");
+    const char* str = "this is just a simple example";
+    maxDistance(str);
 
-    std::cout << "Result: <" << testPositions.first << ", " << testPositions.second << ">\n";
+    //pair<int, int> testPositions = getPositionsOfMostDistantEqualSymbols(str);
+    //std::cout << "Result: <" << testPositions.first << ", " << testPositions.second << ">\n";
 }

@@ -1,8 +1,6 @@
-#include <string.h>
 #include <iostream>
 #include <string>
 using namespace std;
-
 
 void validate(const char** library[], int m, int n)
 {

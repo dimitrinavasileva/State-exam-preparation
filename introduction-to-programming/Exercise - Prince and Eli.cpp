@@ -6,12 +6,14 @@ using namespace std;
 //Prince coordinates and path from Eli to Prince
 //(2,7) 9 (4,1) 9 (4,8) 16
 
-constexpr int N = 5;
-constexpr int M = 11;
+constexpr int ROWS = 5;
+constexpr int COLS = 11;
 
 struct Prince
 {
-	int x, y, distance;
+	int x = 0;
+	int y = 0;
+	int distance = 0;
 };
 
 bool compare(const Prince& p1, const Prince& p2)
@@ -27,7 +29,7 @@ void insertionSortVector(vector<Prince>& v)
 		int index = i;
 		for (int j = i + 1; j < vectorSize; j++)
 		{
-			if (compare(v.at(j),v.at(index)))
+			if (compare(v.at(j), v.at(index)))
 			{
 				index = j;
 			}
@@ -38,9 +40,9 @@ void insertionSortVector(vector<Prince>& v)
 	}
 }
 
-void getAllPathsToPrince(char map[N][M], int i, int j, int currDistance,vector<Prince>& v)
+void getAllPathsToPrince(char map[ROWS][COLS], int i, int j, int currDistance, vector<Prince>& v)
 {
-	if (i<0 || j<0 || i>N - 1 || j>M - 1 || map[i][j] == '#') return;
+	if (i<0 || j<0 || i>ROWS - 1 || j>COLS - 1 || map[i][j] == '#') return;
 	if (map[i][j] == 'P')
 	{
 		Prince p = { i,j,currDistance };
@@ -56,15 +58,15 @@ void getAllPathsToPrince(char map[N][M], int i, int j, int currDistance,vector<P
 	getAllPathsToPrince(map, i, j - 1, currDistance + 1, v);
 }
 
-void findPathsToPrince(char map[N][M], vector<Prince>& v)
+void findPathsToPrince(char map[ROWS][COLS], vector<Prince>& v)
 {
-	for (int i = 0; i < N; i++)
+	for (int i = 0; i < ROWS; i++)
 	{
-		for (int j = 0; j < M; j++)
+		for (int j = 0; j < COLS; j++)
 		{
 			if (map[i][j] == 'E')
 			{
-				getAllPathsToPrince(map, i, j, 0,v);
+				getAllPathsToPrince(map, i, j, 0, v);
 			}
 		}
 	}
@@ -72,7 +74,7 @@ void findPathsToPrince(char map[N][M], vector<Prince>& v)
 
 int main()
 {
-	char map[N][M] = { {'#', '.', '.', '.', '.', '#', '.', '.', '.', '.', '.'},
+	char map[ROWS][COLS] = { {'#', '.', '.', '.', '.', '#', '.', '.', '.', '.', '.'},
 					{'.', '.', '.', 'E', '.', '.', '.', '.', '#', '.', '.'},
 					{'.', '#', '#', '#', '#', '#', '#', 'P', '#', '#', '.'},
 					{'.', '#', '#', '#', '#', '#', '#', '#', '#', '.', '.'},
