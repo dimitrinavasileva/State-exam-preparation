@@ -1,9 +1,8 @@
 #include<iostream>
 #include<vector>
-using namespace std;
 
-constexpr int ROWS = 3;
-constexpr int COLS = 3;
+constexpr int ROWS{ 3 };
+constexpr int COLS{ 3 };
 
 
 bool walk(int matrix[ROWS][COLS], int i, int j, const char* str, bool result)
@@ -13,19 +12,19 @@ bool walk(int matrix[ROWS][COLS], int i, int j, const char* str, bool result)
 
     if (*str == 'S')
     {
-        result = walk(matrix, i + 1, j, str + 1, result);
+        result = { walk(matrix, i + 1, j, str + 1, result) };
     }
     if (*str == 'N')
     {
-        result = walk(matrix, i - 1, j, str + 1, result);
+        result = { walk(matrix, i - 1, j, str + 1, result) };
     }
     if (*str == 'E')
     {
-        result = walk(matrix, i, j + 1, str + 1, result);
+        result = { walk(matrix, i, j + 1, str + 1, result) };
     }
     if (*str == 'W')
     {
-        result = walk(matrix, i, j - 1, str + 1, result);
+        result = { walk(matrix, i, j - 1, str + 1, result) };
     }
 
     return result;
@@ -34,9 +33,9 @@ bool walk(int matrix[ROWS][COLS], int i, int j, const char* str, bool result)
 
 bool check(int matrix[ROWS][COLS], const char* str)
 {
-    for (int i = 0; i < ROWS; i++)
+    for (int i{ 0 }; i < ROWS; i++)
     {
-        for (int j = 0; j < COLS; j++)
+        for (int j{ 0 }; j < COLS; j++)
         {
             if (matrix[i][j] == 1)
             {
@@ -53,17 +52,17 @@ int main()
                         {1, 0, 1},
                         {1, 1, 1} };
 
-    const char* str = "SSEE";
-    const char* str1 = "SSEES";
-    const char* str2 = "S";
-    const char* str3 = "SS";
-    const char* str4 = "EE";
+    const char* str{ "SSEE" };
+    const char* str1{ "SSEES" };
+    const char* str2{ "S" };
+    const char* str3{ "SS" };
+    const char* str4{ "EE" };
 
-    cout << boolalpha << check(matrix, str) << endl; //true
-    cout << boolalpha << check(matrix, str1) << endl; //false
-    cout << boolalpha << check(matrix, str2) << endl; //true
-    cout << boolalpha << check(matrix, str3) << endl; //false
-    cout << boolalpha << check(matrix, str4) << endl; //true
+    std::cout << std::boolalpha << check(matrix, str) << std::endl; //true
+    std::cout << std::boolalpha << check(matrix, str1) << std::endl; //false
+    std::cout << std::boolalpha << check(matrix, str2) << std::endl; //true
+    std::cout << std::boolalpha << check(matrix, str3) << std::endl; //false
+    std::cout << std::boolalpha << check(matrix, str4) << std::endl; //true
 
     return 0;
 }

@@ -1,16 +1,15 @@
 #include <iostream>
 #include <vector>
 #include <string>
-using namespace std;
 
 //Solution 1 : Without using STL
-constexpr int N = 6;
+constexpr int N{ 6 };
 
 int countDigits(int number)
 {
     if (number == 0) return 1;
 
-    int size = 0;
+    int size{ 0 };
     while (number > 0)
     {
         size++;
@@ -22,16 +21,16 @@ int countDigits(int number)
 
 void intArrrayToCharArray(int arr[N], char matrix[N][N])
 {
-    for (int i = 0; i < N; i++)
+    for (int i{ 0 }; i < N; i++)
     {
-        if (arr[i] == 0) matrix[i][0] = '0';
+        if (arr[i] == 0) matrix[i][0] = { '0' };
 
-        int currDigit = countDigits(arr[i]) - 1;
+        int currDigit{ countDigits(arr[i]) - 1 };
         matrix[i][currDigit + 1] = '\0';
 
         while (arr[i] > 0)
         {
-            int digit = arr[i] % 10;
+            int digit{ arr[i] % 10 };
             arr[i] /= 10;
             matrix[i][currDigit] = digit + '0';
             currDigit--;
@@ -40,10 +39,10 @@ void intArrrayToCharArray(int arr[N], char matrix[N][N])
 }
 
 //strlen
-int size(const char* str)
+size_t size(const char* str)
 {
-    int size = 0;
-    const char* temp = str;
+    size_t size{ 0 };
+    const char* temp{ str };
 
     while (*temp != '\0')
     {
@@ -57,7 +56,7 @@ int size(const char* str)
 //strcmp
 int compare(const char* str1, const char* str2)
 {
-    int i = 0;
+    int i{ 0 };
     while (str1[i] != '\0' && str2[i] != '\0')
     {
         if (str1[i] < str2[i]) return -1;
@@ -72,28 +71,28 @@ int compare(const char* str1, const char* str2)
     return 0;
 }
 
-//strcmp
+//Like strcmp, but void not char*
 void strcopy(char* str1, char* str2)
 {
-    int i = 0;
+    int i{ 0 };
     while (str2[i] != '\0')
     {
-        str1[i] = str2[i];
+        str1[i] = { str2[i] };
         i++;
     }
-    str1[i] = '\0';
+    str1[i] = { '\0' };
 }
 
 void insertionSort(char matrix[N][N])
 {
-    for (int i = 0; i < N; i++)
+    for (int i{ 0 }; i < N; i++)
     {
-        int curr = i;
-        for (int j = i + 1; j < N; j++)
+        int curr{ i };
+        for (int j{ i + 1 }; j < N; j++)
         {
             if (compare(matrix[curr], matrix[j]) != -1)
             {
-                curr = j;
+                curr = { j };
             }
         }
 
@@ -105,37 +104,40 @@ void insertionSort(char matrix[N][N])
 }
 
 //Solution 2 : Using STL
-void sort(vector<string>& v)
+void sort(std::vector<std::string>& v)
 {
-    for (int i = 0; i < v.size() - 1; i++)
+    size_t size{ v.size() };
+    for (size_t i{ 0 }; i < size - 1; i++)
     {
-        int index = i;
-        for (int j = i + 1; j < v.size(); j++)
+        size_t index{ i };
+        for (size_t j{ i + 1 }; j < size; j++)
         {
             if (v[index].compare(v[j]) == 1)
             {
-                index = j;
+                index = { j };
             }
         }
-        string temp = v[index];
-        v[index] = v[i];
-        v[i] = temp;
+
+        std::string temp{ v[index] };
+        v[index] = { v[i] };
+        v[i] = { temp };
     }
 }
 
 void sortLex(int arr[], int arrSize)
 {
-    vector<string> v;
-    for (int i = 0; i < arrSize; i++)
+    std::vector<std::string> v;
+
+    for (int i{ 0 }; i < arrSize; i++)
     {
-        v.push_back(to_string(arr[i]));
+        v.push_back(std::to_string(arr[i]));
     }
 
     sort(v);
 
-    for (string& str : v)
+    for (const std::string& str : v)
     {
-        cout << str << " ";
+        std::cout << str << " ";
     }
 }
 
@@ -144,9 +146,9 @@ void printMatrix(T arr[N])
 {
     for (int i = 0; i < N; i++)
     {
-        cout << arr[i] << ' ';
+        std::cout << arr[i] << ' ';
     }
-    cout << endl;
+    std::cout << std::endl;
 }
 
 int main()

@@ -1,9 +1,8 @@
 #include<iostream>
-using namespace std;
 
 bool is_subordinate(const char* employee, const char* manager, const char* leaders[][2], int n)
 {
-    for (int i = 0; i < n; i++)
+    for (int i{ 0 }; i < n; i++)
     {
         if (strcmp(leaders[i][0], employee) == 0)
         {
@@ -19,21 +18,21 @@ bool is_subordinate(const char* employee, const char* manager, const char* leade
 
 const char* the_big_boss(const char* leaders[][2], int n)
 {
-    int maxcount = 0;
-    const char* boss = "";
-    for (int i = 0; i < n; i++)
+    int maxcount{ 0 };
+    const char* boss{ "" };
+    for (int i{ 0 }; i < n; i++)
     {
-        const char* manager = leaders[i][1];
-        int count = 0;
-        for (int j = 0; j < n; j++)
+        const char* manager{ leaders[i][1] };
+        int count{ 0 };
+        for (int j{ 0 }; j < n; j++)
         {
             if (is_subordinate(leaders[j][0], manager, leaders, n))
             {
                 count++;
                 if (count > maxcount)
                 {
-                    maxcount = count;
-                    boss = manager;
+                    maxcount = { count };
+                    boss = { manager };
                 }
             }
         }
@@ -49,7 +48,8 @@ int main()
         {"Mariq Ivanova", "Ivan Draganov"}
     };
 
-    cout << boolalpha << is_subordinate("Ivan Draganov", "Stoqn Petrov", leaders, 3) << endl;
-    cout << boolalpha << the_big_boss(leaders, 3) << endl;
+    std::cout << std::boolalpha << is_subordinate("Ivan Draganov", "Stoqn Petrov", leaders, 3) << std::endl;
+    std::cout << std::boolalpha << the_big_boss(leaders, 3) << std::endl;
+
     return 0;
 }

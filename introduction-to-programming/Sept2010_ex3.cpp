@@ -9,7 +9,7 @@ bool isNormalSymbol(const char c)
 }
 
 bool isPunctuationSymbol(const char c)
-{ 
+{
     return !isNormalSymbol(c);
 }
 
@@ -42,8 +42,8 @@ void reverseWords(const char* text)
     if (!vecPunctuationSymbols.empty())
     {
         // print punctuation symbol
-        static auto it = vecPunctuationSymbols.begin();
-        const auto& currPunctSymbols = *it;
+        static std::vector<std::vector<char>>::iterator it { vecPunctuationSymbols.begin() };
+        const std::vector<char>& currPunctSymbols{ *it };
         for (char punctSymbol : currPunctSymbols)
         {
             std::cout << punctSymbol;

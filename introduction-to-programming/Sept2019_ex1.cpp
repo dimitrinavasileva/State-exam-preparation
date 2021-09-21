@@ -1,6 +1,5 @@
 #include <iostream>
 #include <vector>
-using namespace std;
 
 // September 2019, ex. 1
 
@@ -11,7 +10,7 @@ bool find(int value, int* arr, size_t size)
 {
     if (size == 0) return false;
 
-    size_t mid = size / 2;
+    size_t mid{ size / 2 };
 
     if (value == arr[mid]) return true;
 
@@ -27,10 +26,10 @@ bool find(int value, int* arr, size_t size)
 template <typename ReturnType, typename InputType, typename OpType>
 ReturnType fold_left(InputType* arr, size_t size, OpType op, ReturnType nil)
 {
-    ReturnType result = nil;
-    for (size_t i = 0; i < size; ++i)
+    ReturnType result{ nil };
+    for (size_t i{ 0 }; i < size; ++i)
     {
-        result = op(arr[i], result);
+        result = { op(arr[i], result) };
     }
 
     return result;
@@ -53,17 +52,18 @@ int main()
 {
     int arr[] = { 1,2,3,4,5, 6 };
     int size = sizeof(arr) / sizeof(arr[0]);
-    cout << boolalpha << find(1, arr, size) << endl;
-    cout << boolalpha << find(2, arr, size) << endl;
-    cout << boolalpha << find(3, arr, size) << endl;
-    cout << boolalpha << find(4, arr, size) << endl;
-    cout << boolalpha << find(5, arr, size) << endl;
-    cout << boolalpha << find(6, arr, size) << endl;
-    cout << boolalpha << find(7, arr, size) << endl;
-    cout << boolalpha << find(0, arr, size) << endl;
-    cout << boolalpha << find(-1, arr, size) << endl;
+    std::cout << std::boolalpha << find(1, arr, size) << std::endl;
+    std::cout << std::boolalpha << find(2, arr, size) << std::endl;
+    std::cout << std::boolalpha << find(3, arr, size) << std::endl;
+    std::cout << std::boolalpha << find(4, arr, size) << std::endl;
+    std::cout << std::boolalpha << find(5, arr, size) << std::endl;
+    std::cout << std::boolalpha << find(6, arr, size) << std::endl;
+    std::cout << std::boolalpha << find(7, arr, size) << std::endl;
+    std::cout << std::boolalpha << find(0, arr, size) << std::endl;
+    std::cout << std::boolalpha << find(-1, arr, size) << std::endl;
 
-    cout << fold_left("123456", 6, op, 0) << endl;
-    cout << str_to_int("123456");
+    std::cout << fold_left("123456", 6, op, 0) << std::endl;
+    std::cout << str_to_int("123456");
 
+    return 0;
 }

@@ -1,8 +1,4 @@
 #include <iostream>
-#include <vector>
-using namespace std;
-
-// July 2019, ex. 1
 
 bool walk(char arr[6][6], int row, int col, const char* str)
 {
@@ -12,10 +8,10 @@ bool walk(char arr[6][6], int row, int col, const char* str)
 
     arr[row][col] *= -1;
 
-    bool result = walk(arr, row + 1, col, str + 1) ||
+    bool result{ walk(arr, row + 1, col, str + 1) ||
         walk(arr, row - 1, col, str + 1) ||
         walk(arr, row, col + 1, str + 1) ||
-        walk(arr, row, col - 1, str + 1);
+        walk(arr, row, col - 1, str + 1) };
 
     arr[row][col] *= -1;
 
@@ -23,10 +19,16 @@ bool walk(char arr[6][6], int row, int col, const char* str)
 }
 
 bool contains(char arr[6][6], const char* str) {
-    for (int row = 0; row < 6; row++)
-        for (int col = 0; col < 6; col++)
+    for (int row{ 0 }; row < 6; row++)
+    {
+        for (int col{ 0 }; col < 6; col++)
+        {
             if (walk(arr, row, col, str))
+            {
                 return true;
+            }
+        }
+    }
     return false;
 }
 
@@ -39,5 +41,5 @@ int main()
                       {'e','f','Q','N','1','C'},
                       {'h','g','h','M','A','r'} };
 
-    cout << boolalpha << contains(arr, "abcdefgh") << endl;
+    std::cout << std::boolalpha << contains(arr, "abcdefgh") << std::endl;
 }
