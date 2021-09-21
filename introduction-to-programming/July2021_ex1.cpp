@@ -1,8 +1,8 @@
 #include<iostream>
 using namespace std;
 
-const int N = 4;
-const int M = 6;
+constexpr int N = 4;
+constexpr int M = 6;
 
 struct Area {
     int x = 0; 

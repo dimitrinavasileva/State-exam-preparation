@@ -6,8 +6,8 @@ using namespace std;
 //Prince coordinates and path from Eli to Prince
 //(2,7) 9 (4,1) 9 (4,8) 16
 
-const int N = 5;
-const int M = 11;
+constexpr int N = 5;
+constexpr int M = 11;
 
 struct Prince
 {

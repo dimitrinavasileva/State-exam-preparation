@@ -1,18 +1,15 @@
-#include<iostream>
-#include<vector>
+#include <iostream>
+#include <string>
+#include <vector>
 
-using namespace std;
-
-// September 2010, Ex. 3
-
-bool isNormalSymbol(char c)
+bool isNormalSymbol(const char c)
 {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
         (c >= '0' && c <= '9') || (c == '_');
 }
 
-bool isPunctuationSymbol(char c)
-{
+bool isPunctuationSymbol(const char c)
+{ 
     return !isNormalSymbol(c);
 }
 
@@ -20,9 +17,9 @@ void reverseWords(const char* text)
 {
     if (*text == '\0') return;
 
-    static vector<vector<char>> vecPunctuationSymbols;
+    static std::vector<std::vector<char>> vecPunctuationSymbols;
 
-    string buff;
+    std::string buff;
     while (*text != '\0' && isNormalSymbol(*text))
     {
         buff += *text;
@@ -31,7 +28,7 @@ void reverseWords(const char* text)
 
     if (*text != '\0')
     {
-        vector<char> punctuationSymbols;
+        std::vector<char> punctuationSymbols;
         while (*text != '\0' && isPunctuationSymbol(*text))
         {
             punctuationSymbols.push_back(*text);
@@ -41,23 +38,23 @@ void reverseWords(const char* text)
     }
 
     reverseWords(text);
-    cout << buff;
+    std::cout << buff;
     if (!vecPunctuationSymbols.empty())
     {
+        // print punctuation symbol
         static auto it = vecPunctuationSymbols.begin();
         const auto& currPunctSymbols = *it;
         for (char punctSymbol : currPunctSymbols)
         {
-            cout << punctSymbol;
+            std::cout << punctSymbol;
         }
         ++it;
     }
 }
 
-
 int main()
 {
-    reverseWords("Hello world, baby!");  // prints "baby world, Hello!"
-    cout << endl;
     reverseWords("1;;2;3;4;;5.");  // prints "5;;4;3;2;;1."
+
+    return 0;
 }

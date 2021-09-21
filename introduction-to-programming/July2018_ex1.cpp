@@ -3,8 +3,8 @@
 #include <string>
 using namespace std;
 
-//Solution 1
-const int N = 6;
+//Solution 1 : Without using STL
+constexpr int N = 6;
 
 int countDigits(int number)
 {
@@ -27,8 +27,8 @@ void intArrrayToCharArray(int arr[N], char matrix[N][N])
         if (arr[i] == 0) matrix[i][0] = '0';
 
         int currDigit = countDigits(arr[i]) - 1;
-        matrix[i][currDigit + 1] = '\0'; 
-		
+        matrix[i][currDigit + 1] = '\0';
+
         while (arr[i] > 0)
         {
             int digit = arr[i] % 10;
@@ -43,8 +43,8 @@ void intArrrayToCharArray(int arr[N], char matrix[N][N])
 int size(const char* str)
 {
     int size = 0;
-    const char* temp = str; 
-	
+    const char* temp = str;
+
     while (*temp != '\0')
     {
         temp++;
@@ -96,7 +96,7 @@ void insertionSort(char matrix[N][N])
                 curr = j;
             }
         }
-		
+
         char temp[100];
         strcopy(temp, matrix[curr]);
         strcopy(matrix[curr], matrix[i]);
@@ -107,136 +107,58 @@ void insertionSort(char matrix[N][N])
 //Solution 2 : Using STL
 void sort(vector<string>& v)
 {
-	for (int i = 0; i < v.size() - 1; i++)
-	{
-		int index = i;
-		for (int j = i + 1; j < v.size(); j++)
-		{
-			if (v[index].compare(v[j]) == 1)
-			{
-				index = j;
-			}
-		}
-		string temp = v[index];
-		v[index] = v[i];
-		v[i] = temp;
-	}
+    for (int i = 0; i < v.size() - 1; i++)
+    {
+        int index = i;
+        for (int j = i + 1; j < v.size(); j++)
+        {
+            if (v[index].compare(v[j]) == 1)
+            {
+                index = j;
+            }
+        }
+        string temp = v[index];
+        v[index] = v[i];
+        v[i] = temp;
+    }
 }
 
 void sortLex(int arr[], int arrSize)
 {
-	vector<string> v;
-	for (int i = 0; i < arrSize; i++)
-	{
-		v.push_back(to_string(arr[i]));
-	}
-
-	sort(v);
-
-	for (string& str : v)
-	{
-		cout << str << " ";
-	}
-}
-
-// Solution 3 
-void save_in_char_array(char* char_array, int x)
-{
-    if (x == 0)
+    vector<string> v;
+    for (int i = 0; i < arrSize; i++)
     {
-        char_array[0] = '0';
-        char_array[1] = '\0';
-        return;
+        v.push_back(to_string(arr[i]));
     }
 
-    int i = 0;
+    sort(v);
 
-    while (x > 0)
+    for (string& str : v)
     {
-        char_array[i] = '0' + x % 10;
-        i++;
-        x = x / 10;
-    }
-    char_array[i] = '\0';
-}
-
-bool less_than_lex(int a, int b)
-{
-    char a_as_str[20];
-    char b_as_str[20];
-
-    save_in_char_array(a_as_str, a);
-    save_in_char_array(b_as_str, b);
-
-    int a_size = strlen(a_as_str) - 1;
-    int b_size = strlen(b_as_str) - 1;
-
-    while (a_size >= 0 && b_size >= 0)
-    {
-        if (a_as_str[a_size] < b_as_str[b_size])
-        {
-            return true;
-        }
-        else if (a_as_str[a_size] > b_as_str[b_size])
-        {
-            return false;
-        }
-        a_size--;
-        b_size--;
-    }
-
-    if (a_size == -1 && b_size == -1)
-    {
-        return false;
-    }
-    if (a_size == -1)
-    {
-        return true;
-    }
-
-    return false;
-}
-
-void sort_lex(int* arr, int n)
-{
-    for (int i = 0; i < n - 1; i++)
-    {
-        for (int k = i + 1; k < n; k++)
-        {
-            if (less_than_lex(arr[k], arr[i]))
-            {
-                int swap = arr[i];
-                arr[i] = arr[k];
-                arr[k] = swap;
-            }
-        }
+        cout << str << " ";
     }
 }
 
 template<typename T>
 void printMatrix(T arr[N])
 {
-	for (int i = 0; i < N; i++)
+    for (int i = 0; i < N; i++)
     {
         cout << arr[i] << ' ';
     }
+    cout << endl;
 }
 
 int main()
 {
-	int arr[N] = { 13, 14, 7, 2018, 9, 0 };
+    int arr[N] = { 13, 14, 7, 2018, 9, 0 };
     char matrix[N][N];
 
     intArrrayToCharArray(arr, matrix);
     insertionSort(matrix);
     printMatrix(matrix);
 
-    sortLex(arr, N);
-	printMatrix(arr);
-	
-	
-	sort_lex(arr, N);
-	printMatrix(arr);
+    //sortLex(arr, N);
 
-	return 0;
+    return 0;
 }

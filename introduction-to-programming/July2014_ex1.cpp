@@ -2,8 +2,8 @@
 #include<vector>
 using namespace std;
 
-const int N = 3;
-const int M = 3;
+constexpr int N = 3;
+constexpr int M = 3;
 
 
 bool walk(int matrix[N][M], int i, int j, const char* str, bool result)

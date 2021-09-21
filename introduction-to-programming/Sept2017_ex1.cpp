@@ -1,7 +1,8 @@
 #include <iostream>
 using namespace std;
 
-const int N = 4, M = 6;
+constexpr int N = 4;
+constexpr int M = 6;
 
 int explore(char matrix[N][M], int i, int j)
 {
