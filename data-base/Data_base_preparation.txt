@@ -1,0 +1,1177 @@
+use movies;
+-- Допълнителни задачи за упражнение
+
+--Пример за FULL [outer] join
+use movies;
+--За всеки актьор и/или продуцент да се изведе името му, рождената му дата и networth:
+-- Неудобен начин:
+SELECT ms.name, me.name, ms.birthdate, me.networth
+FROM moviestar ms
+FULL outer JOIN movieexec me ON ms.name = me.name;
+-- Хубав начин:
+SELECT COALESCE(ms.name, me.name) AS name, --COALESCE ---> връща първата NOT NULL стойност от списъка
+       ms.birthdate, me.networth
+FROM moviestar ms
+FULL JOIN movieexec me ON ms.name = me.name;
+
+--1 За всяко студио, чийто адрес съдържа буквата A и имащо поне два филма, да се изведат: име, първа година, в която студиото е снимало филм; 
+--брой на (различните) актьори, които са играли във филми, снимани от студиото.
+
+select s.name, min(m.year) as fst_year, count(distinct st.starname)
+from studio s
+join movie m on s.name = m.studioname
+join starsin st on m.title = st.movietitle and m.year = st.movieyear
+join moviestar mo on st.starname = mo.name
+where s.address like '%A%' and mo.gender = 'M'
+group by s.name
+having count(distinct m.title) >= 2;
+
+--2 Напишете заявка, която извежда имената и рождените дати на тези актриси, които са родени през първата половина на годината (януари-юни) и името им не съдържа буквата R. 
+--Първо да се изведат най-младите актриси, а ако няколко актриси имат еднаква рождена дата, те да бъдат подредени по азбучен ред на името.
+select name, birthdate
+from MOVIESTAR
+where name not like '%R%' and gender = 'F' and (MONTH(BIRTHDATE) <= 6 and MONTH(BIRTHDATE) >= 1)
+order by birthdate desc, name asc
+
+--3 За всяка филмова звезда да се изведе следната информация: име; заглавие на филм; брой филми, които са заснети в годината на филма 
+--(без значение дали актьор е играл в тях). Ако за дадена звезда няма информация в кои филми е играла, за нея да се изведе ред в следния формат: име, null, 0. 
+--Пример:
+/*Актьор1 Филм1 5
+Актьор1 Филм2 0
+Актьор1 Филм3 2
+Актьор2 null 0*/
+select mo.name, movietitle, count(distinct m.title) as cnt_movies
+from moviestar mo 
+left join starsin st on mo.name = st.starname
+left join movie m on m.title = st.movietitle and m.year = st.movieyear
+group by mo.name, st.movietitle
+
+--4 Да се изведат името и рождената дата за всички филмови звезди с неизвестен адрес, които НЕ са играли във филм на Дисни 
+--преди навършване на 18 г. Да се включат и звезди, за които нямаме информация в кои филми са играли.
+select NAME, BIRTHDATE
+from MOVIESTAR 
+where ADDRESS is NULL and NAME not in (select ms.NAME
+										from MOVIESTAR ms 
+										join STARSIN si on ms.NAME=si.STARNAME 
+										join MOVIE m on si.MOVIETITLE=m.TITLE and si.MOVIEYEAR=m.YEAR
+										where m.STUDIONAME = 'Disney' and si.MOVIEYEAR-year(ms.BIRTHDATE)<18)
+
+
+--5 Да се напише заявка, която за всеки филм чието заглавие започва със Star и завършващо с буква различна от k
+--извежда заглавие и дължина. Първо да се изведът най-дългите филми, а филми с еднаква дължина да бъдат подредени по азбучен ред
+select title, length
+from movie
+where title like 'Star%' and title not like '%k'
+order by length desc, title
+
+--6 Напишете заявка, която извежда за всяко студио
+--името му
+--адреса
+--и заглавията на тези от филмите му, които са с неизвестна дължина или са по-дълги от средната дължина на филмите на същото студио
+--Пример 
+-- MGM MGMBul Movie1
+-- MGM MGMBul Movie3
+-- Fox FoxBul Movie5
+select s.name, s.address, m.title, m.length
+from studio s
+join movie m on s.name=m.studioname
+where length is null or length > (select avg(length)
+								  from movie m1
+								  where s.name = m1.studioname
+								  group by studioname);
+
+--7 За всяко студио, работило с най-много 2 различни филмови звезди, да се изведе:
+--име на студио, брой негови филми, рожденна година на най-стария актьор, с когото е работило студиото.
+--Да се включат и студиа, които нямат филми или за техните филми няма информация кои звезди са играли -
+-- за тях да се изведът стойности 0 или NULL за липсващите данни
+SELECT studio.name, count(distinct title) as cnt, year(min(birthdate)) as year
+FROM studio  -- --- Трябва да почнем от studio, не movie, защото искат и студия които са без филми !!!
+LEFT JOIN movie on studio.name = studioname
+LEFT JOIN starsin on year = movieyear and title = movietitle
+LEFT JOIN moviestar on starname = moviestar.name
+GROUP BY studio.name
+HAVING COUNT(DISTINCT starname) <= 2
+
+use pc;
+
+--9 За всеки лаптоп да се изведе следната информация: код, модел, производител, средната цена на лаптопите със същия диагонал на екрана. 
+--Ако даден производител не произвежда лаптопи, за него да се изведе ред в следния формат: null, null, име, 0;
+select code, laptop.model, maker, coalesce((select avg(price) 
+											from laptop l 
+											where l.screen = laptop.screen), 0)
+from product
+left join laptop on product.model = laptop.model;
+
+--10 За всеки производител, който има поне три произведени лаптопа и чието име е различно от ‘A’ да се изведат: името на производителя, 
+--цената на най-скъпия му лаптоп, бройката на всички лаптопи с различни размери екрани.
+select maker, max(price), count(distinct screen)
+from product
+join laptop on product.model = laptop.model
+group by maker
+having count(code) >= 3 and maker != 'A'
+
+--11 Да се изведат моделите, диагоналите на екраните в сантиметри и цените на всички лаптопи, произведени от производител, 
+---който НЕ произвежда цветни принтери с неизвестна цена. Да се включат и лаптопите, чиито производители не произвеждат никакви принтери. 
+--Диагоналите в таблицата са в инчове, 1 инч ≈ 2.54 см.
+select laptop.model, screen*2.54, price
+from product
+join laptop on product.model = laptop.model
+where maker not in (select maker
+					from product 
+					join printer on product.model = printer.model
+					where color = 'y' and price is null)
+
+use ships;
+--12 Да се изведат имената и месеците на провеждане на всички битки, в които НЕ са участвали стари кораби от неизвестна държава. 
+--Под стари кораби имаме предвид такива, които са построени повече от 4 години преди битката. 
+--Да се включат и битките, за които нямаме информация кои кораби са участвали в тях.
+SELECT DISTINCT name, MONTH(date)
+FROM battles 
+LEFT JOIN outcomes on name = battle
+WHERE ship NOT IN (SELECT name
+				   FROM ships 
+				   JOIN classes on ships.class = classes.class
+				   WHERE launched < year(date) - 4 AND country IS NOT NULL)
+
+--13 За всеки японски клас с 2, 3 или 4 кораба да се изведат: -име; -последната година, в която е пуснат кораб от този клас (launched);
+-- -брой (различни) битки с участващи кораби от този клас.
+SELECT classes.class, MAX(launched), COUNT(DISTINCT battle)
+FROM classes 
+JOIN ships on classes.class = ships.class 
+LEFT JOIN outcomes on name = ship
+WHERE country = 'Japan'
+GROUP BY classes.class
+HAVING COUNT(distinct name) IN (2,3,4)
+
+--14 Напишете заявка, която извежда имената и броя оръдия (numguns) на всички японски класове, 
+--на които водоизместимостта (displacement) е извън интервала [10000, 20000] 
+--и името не съдържа буквата K. Първо да се изведат класовете с най-малко оръдия, 
+--а ако няколко класа имат еднакъв брой, те да бъдат подредени по име.
+select class, count(numguns)
+from classes
+where country = 'Japan' and (displacement < 10000 or displacement > 20000) and class not like '%K%'
+group by class
+order by count(numguns), class;
+
+--15 За всяка битка да се изведе: -име на битка; -име на кораб, участвал в битката; 
+---брой кораби, пуснати на вода в същата година като текущия кораб. 
+--Ако за дадена битка няма участвали кораби, да се изведе: име на битка, null, 0. 
+--Пример: Битка1 Кораб1 3 Битка1 Кораб2 0 Битка1 Кораб3 2 Битка2 null 0
+SELECT battles.name, ships.name, (SELECT COUNT(*) FROM ships s WHERE s.launched = ships.launched) -- може би COALESCE(..., 0)
+FROM battles 
+LEFT JOIN outcomes on battles.name = battle 
+LEFT JOIN ships on ship = ships.name
+
+---- Решения на задачи по Бази от данни давани на Държавен изпит, ФМИ, спец. Компютърни науки
+
+--16.09.2020
+use movies;
+--Task 1
+-- A)
+--Да се напише заявка, която извежда имената и адресите на всички студиа, които имат поне един цветен и поне един черно-бял филм. Резултатът да се сортира възходящо по адрес.
+select s.name, s.address
+from studio s
+join movie m on s.name = m.studioname
+where m.incolor = 'Y'
+
+intersect -- премахва повтарящите се кортежи. С ALL ще ги запази, но ALL не се поддържа на SQL Server.
+
+select s.name, s.address
+from studio s
+join movie m on s.name = m.studioname
+where m.incolor = 'N'
+order by address;
+
+SELECT DISTINCT S.NAME, S.ADDRESS
+FROM STUDIO S 
+JOIN MOVIE M on S.NAME = M.STUDIONAME
+WHERE M.INCOLOR='Y' AND S.NAME IN (SELECT S.NAME
+                                   FROM STUDIO S
+                                   JOIN MOVIE M on S.NAME = M.STUDIONAME
+                                   WHERE M.INCOLOR='N')
+ORDER BY S.ADDRESS;
+
+--Често срещана грешка - Заявката не е вярна, тъй като няма как полето incolor да съдържа едновременно N Y
+select s.name, s.address
+from studio s
+join movie m on s.name = m.studioname
+where m.incolor = 'Y' and m.incolor = 'N'
+order by s.address;
+
+-- Б)
+--Да се напише заявка, която за всяко студио с най-много три филма извежда:
+--•името му;
+--•адреса;
+--•средната дължина на филмите на това студио.
+--Студиа без филми също да се изведат (за средна дължина да се извежда null или 0).
+select s.name, s.address, avg(m.length)
+from studio s
+left join movie m on s.name = m.studioname
+group by s.name, s.address
+having count(m.title) <= 3;
+
+--05.08.2020
+use movies;
+--Task 1
+--A)
+--Да се напише заявка, която извежда имената и рождените дати на всички филмови звезди, чието име не съдържа "Jr." и са играли в поне един цветен филм. 
+--Първо да се изведат най-младите звезди,а звезди, родени на една и съща дата, да се изведат по азбучен ред.
+select mo.name, mo.birthdate
+from moviestar mo
+join starsin st on mo.name = st.starname
+join movie m on st.movietitle = m.title and st.movieyear = m.year
+where mo.name not like '%Jr.%' and m.incolor = 'Y'
+order by mo.birthdate desc, mo.name;
+
+--Б)
+--Да се напише заявка, която извежда следната информация за всяка актриса, играла в най-много 6 филма:
+--•име;
+--•рождена година (напр. ако актрисата е родена на 1.1.1995 г., в колоната да пише 1995);
+--•брой различни студиа, с които е работила.
+--Ако за дадена актриса няма информация в какви филми е играла, за нея също да се изведе ред с горната информация, като за брой студиа се изведе 0.
+
+--най-много 6 филма => може и 0 при всички случаи ще използваме left join 
+select mo.name, year(mo.birthdate) as act_year, count(distinct m.studioname) as cnt_studio
+from moviestar mo
+left join starsin st on mo.name = st.starname
+left join movie m on st.movietitle = m.title and st.movieyear = m.year
+where mo.gender = 'F'
+group by mo.name, mo.birthdate
+having count(st.movietitle) <= 6;
+
+--10.09.2019
+use movies;
+--Task 1
+--Да се огради буквата на заявката, която извежда за всеки продуцент името му и броя на филмите му по години. Продуценти, които нямат нито един филм, 
+--НЕ трябва да присъстват в резултатното множество.
+--Отговор Б
+select me.name, m.year, count(*) as cnt
+from movieexec me
+join movie m on me.cert# = m.producerc#
+group by me.cert#, me.name, m.year
+
+--Task 2
+--Да се напише заявка, която да изведе името на най-младата звезда (полът е без значение).
+select name
+from moviestar
+where birthdate = (select max(birthdate)
+				   from moviestar);
+					  
+--OR
+
+select name
+from moviestar
+where birthdate >= all(select birthdate
+				       from moviestar
+					   where birthdate is not null);
+
+--09.07.2019
+use movies;
+--Task 1 
+--Да се огради буквата на заявката, която извежда име на студио и броя на филмите му, за тези студия с по-малко от два филма. 
+--Студиата, които нямат нито един филм, НЕ трябва да присъстват в резултата.
+--Отговор C
+
+--Task 2
+--Да се напише заявка, която да изведе имената на всички продуценти с минимален нетен актив. 
+select name
+from movieexec
+where networth = (select min(networth)
+				  from movieexec);
+
+select name
+from movieexec
+where networth >= all(select networth
+				      from movieexec
+					  where networth is not null);
+
+--10.09.2018
+use ships;
+--Заб. За всички атрибути за които не е указано че може да приемат стойност null, да се счита че съществува not null ограничение
+
+--Task 1
+--Да се напише заявка, която извежда име на клас, годината на първата битка, в която кораб на този клас е участвал, годината на последната битка, 
+--в която кораб на този клас е участвал, и броя на всички различни битки, в които кораби на този клас са участвали, само за тези класове, започващи с буквата N. 
+--Ако за даден клас няма кораб, който да е участвал в битка, за съответните години да се върне стойност null.
+SELECT S.CLASS, MIN(YEAR(DATE)) AS MIN_YEAR, MAX(YEAR(DATE)) MAX_YEAR, COUNT(DISTINCT B.NAME) AS CNT
+FROM SHIPS S 
+LEFT JOIN OUTCOMES O on S.NAME = O.SHIP
+LEFT JOIN BATTLES B on O.BATTLE = B.NAME
+WHERE S.CLASS LIKE 'N%'
+GROUP BY S.CLASS;
+
+--Task 2  
+--Да се напише заявка, която да изведе имената на тези битки, за които броят на корабите от тип 'bb', участвали в тази битка, е по-голям от броя на корабите от тип 'bc', 
+--участвали в същата битка. Битки, в които не е участвал нито един кораб, да не се извеждат в резултата.
+SELECT *
+FROM
+(
+SELECT O.BATTLE, COUNT(S.NAME) AS CNT_BB
+FROM CLASSES C, SHIPS S, OUTCOMES O
+WHERE C.CLASS = S.CLASS AND S.NAME=O.SHIP
+AND C.TYPE='bb'
+GROUP BY O.BATTLE) T_BB
+JOIN
+(SELECT O.BATTLE, COUNT(S.NAME) AS CNT_BC
+FROM CLASSES C, SHIPS S, OUTCOMES O
+WHERE C.CLASS = S.CLASS AND S.NAME=O.SHIP
+AND C.TYPE='bc'
+GROUP BY O.BATTLE) T_BC
+ON T_BB.BATTLE = T_BC.BATTLE
+WHERE T_BB.CNT_BB > T_BC.CNT_BC;
+
+
+SELECT O.BATTLE AS CNT_BB
+FROM CLASSES C, SHIPS S, OUTCOMES O
+WHERE C.CLASS = S.CLASS AND S.NAME=O.SHIP
+AND C.TYPE='bb'
+GROUP BY O.BATTLE
+HAVING COUNT(S.NAME) > (SELECT COUNT(S1.NAME) AS CNT_BC
+                    FROM CLASSES C1, SHIPS S1, OUTCOMES O1
+                    WHERE C1.CLASS = S1.CLASS AND S1.NAME=O1.SHIP
+                    AND C1.TYPE='bc' AND O1.BATTLE = O.BATTLE
+                    GROUP BY O1.BATTLE);
+
+--13.07.2018
+use movies;
+--Task 1
+--Да се напише заявка, която да изведе име на студио, годината на първия филм за това студио, годината на последния филм за това студио и броя на всички филми за това студио, 
+--само за тези студиа започващи с буквата ‘M’.
+SELECT STUDIONAME, MIN(YEAR) AS MIN_YEAR, MAX(YEAR) AS MAX_YEAR, COUNT(*) CNT
+FROM MOVIE
+WHERE STUDIONAME LIKE 'M%'
+GROUP BY STUDIONAME;
+
+--Task 2
+--Да се напише заявка, която да изведе името на актрисата, участвала в най-много филми, и броя на филмите, в които е участвала                
+SELECT MS.NAME, COUNT(S.MOVIETITLE) AS CNT
+FROM MOVIESTAR MS
+JOIN STARSIN S ON MS.NAME = S.STARNAME
+WHERE MS.NAME = S.STARNAME AND MS.GENDER = 'F'
+GROUP BY MS.NAME
+HAVING COUNT(*) >= ALL(SELECT COUNT(S.MOVIETITLE) AS CNT
+                       FROM MOVIESTAR MS, STARSIN S
+                       WHERE MS.NAME = S.STARNAME
+                       AND MS.GENDER = 'F'
+                       GROUP BY MS.NAME);
+
+--09.09.2017
+use ships;
+--Попълнете липсващите части, обозначени с ______ така, че заявката да изведе име и държава на корабите, които никога не са потъвали в битка (може и да не са участвали).
+SELECT NAME, COUNTRY
+FROM SHIPS 
+LEFT JOIN OUTCOMES ON NAME = SHIP
+LEFT JOIN CLASSES ON CLASSES.CLASS = SHIPS.CLASS
+WHERE RESULT <> 'sunk' OR RESULT IS NULL;
+
+--Попълнете липсващите части, обозначени с ______ така, че заявката да изведе име, водоизместимост и брой оръдия на най-леките кораби с най-много оръдия.
+SELECT NAME, DISPLACEMENT, NUMGUNS
+FROM CLASSES C 
+JOIN SHIPS S on C.CLASS = S.CLASS
+WHERE DISPLACEMENT = (SELECT MIN(DISPLACEMENT) 
+					  FROM CLASSES)  AND NUMGUNS = (SELECT MAX(NUMGUNS) 
+													FROM CLASSES C1 
+													WHERE C.CLASS = C1.CLASS);
+
+--Попълнете липсващите части, обозначени с ______ така, че заявката да изведе име на битките, в които е участвал един кораб.
+SELECT BATTLE, SHIP
+FROM OUTCOMES O1
+WHERE NOT EXISTS (SELECT * 
+				  FROM OUTCOMES O2
+                  WHERE O1.BATTLE = O2.BATTLE AND O1.SHIP <> O2.SHIP);
+
+--Да се посочи заявката, която извежда име на класа и брой на потъналите в битка кораби за съответния клас, за тези класове с повече от 5 кораба.
+-- Отговор Б
+select class, count(distinct name)
+FROM ships s 
+join outcomes o on s.name=o.ship
+where result = 'sunk' and class in (select c.class
+									from classes c 
+									join ships s on c.class=s.class
+									group by c.class
+									having count(name) > 5)
+group by class;
+
+--11.07.2017
+use movies;
+--Попълнете липсващите части, обозначени с ______ така, че заявката да изведе за всяко студио името на студиото, заглавието и годината на филма,
+--излязъл последно на екран за това студио.
+SELECT STUDIONAME, TITLE, YEAR
+FROM MOVIE M
+WHERE YEAR = (SELECT MAX(YEAR) 
+              FROM MOVIE 
+			  WHERE STUDIONAME = M.STUDIONAME);
+
+
+--Попълнете липсващите части, обозначени с ______ така, че заявката да изведе име на продуцент и обща дължина на продуцираните от него филми, 
+--за тези продуценти, които имат поне един филм преди 1980 г.
+SELECT NAME, SUM(LENGTH) AS SUM_LEN
+FROM MOVIEEXEC 
+JOIN MOVIE ON PRODUCERC# = CERT#
+GROUP BY NAME
+HAVING MIN(YEAR) < 1980;
+
+
+--Попълнете липсващите части, обозначени с ______ така, че заявката да изведе име на актьорите, участвали във филми на продуценти с най-големи нетни активи, 
+--както и заглавие на филмите, в които са участвали, име на продуцент и нетни активи.
+SELECT STARNAME, TITLE, NETWORTH
+FROM STARSIN 
+JOIN MOVIE ON MOVIETITLE=TITLE AND MOVIEYEAR = YEAR
+JOIN (SELECT CERT#, NETWORTH, NAME
+      FROM MOVIEEXEC
+      WHERE NETWORTH = (SELECT MAX(NETWORTH) FROM MOVIEEXEC))T
+ON T.CERT# = PRODUCERC#;
+
+--Заградете буквата на заявката, която извежда името на продуцента, заглавието и годината на всички филми, продуцирани от продуцента на филма ‘Interstellar’.
+--Отговор В
+select name, title, year
+from movie 
+join movieexec on producerc#=cert#
+WHERE cert# = any (select producerc#
+				   from movie
+				   where title = 'Interstellar');
+
+--OR:
+
+select name, title, year
+from movie 
+join movieexec on producerc#=cert#
+WHERE cert# in (select producerc#
+				from movie
+				where title = 'Interstellar');
+
+--9.09.2016
+use ships;
+--​Да се посочи заявката, която извежда всички държави, които имат поне един кораб, участвал вбитка, както и броя на потъналите кораби за всяка от държавите
+-- А) отпада - OR result IS NOT NULL хваща всички резултати
+-- прави left join с classes и връща всички държави, а не само тези имащи поне един кораб да е участвал в битка
+SELECT c.country , COUNT(o.result)
+FROM classes c left join ships s ON c.class=s.class
+LEFT JOIN outcomes o ON s.name=o.ship
+WHERE result='sunk' OR result IS NOT NULL
+GROUP BY c.country;
+
+--ОТГОВОР Б) вярна
+select c.country , count(o.result)
+from classes c  
+join ships s on c.class=s.class 
+join outcomes o on s.name=o.ship
+where result='sunk'
+group by c.country;
+
+-- В) отпада - HAVING без GROUP BY и ORDER BY трябва да е след HAVING
+SELECT c.country , COUNT(o.result)
+FROM classes c join ships s ON c.class=s.class
+JOIN outcomes o ON s.name=o.ship
+JOIN battles b ON o.battle=b.name
+ORDER BY c.country
+HAVING result ='sunk';
+
+-- Г) отпада - има и държави, които никога не са участвали в битка
+SELECT DISTINCT c.country, (SELECT COUNT(o.result)
+							FROM classes c1 JOIN ships s ON c1.class=s.class
+							JOIN outcomes o ON s.name=o.ship
+							WHERE result='sunk' AND c1.country=c.country)
+FROM classes c;
+
+--Да се посочи заявката, която извежда имената на битките, които са по-мащабни (с кораби от повече държави) от битката в Коралово море (Coral Sea)
+--ОТГОВОР А) вярна
+select distinct battle
+from outcomes o1
+where(select count(distinct country) 
+	  from outcomes o,ships s,classes c 
+	  where o.ship=s.name and s.class=c.class and battle=o1.battle) 
+	 >
+	(select count(distinct country) 
+	 from outcomes o,ships s,classes c 
+	 where o.ship=s.name and s.class=c.class and battle='Coral Sea')
+
+-- Б) грешна
+-- from на 2 таблици -> декартово произведение
+-- не може (SELECT NumCountries FROM t), където t е временна таблица, а NumCountries колона от тази временна таблица
+-- прави join със себе си по battle от outcomes
+SELECT DISTINCT battle
+FROM OUTCOMES,(SELECT count(DISTINCT country) as NumCountries
+               FROM OUTCOMES o, SHIPS s, CLASSES c
+			   WHERE o.ship = s.name AND s.class = c.class AND battle = 'Soft Core') as t
+HAVING (SELECT count(DISTINCT country)
+        FROM OUTCOMES o1, SHIPS s, CLASSES c
+		WHERE o1.ship = s.name AND s.class = c.class AND battle = o1.battle) > (SELECT NumCountries
+																				FROM t);
+
+-- В) грешна
+-- трябва във вложеното да е count distinct
+SELECT DISTINCT battle
+FROM OUTCOMES o, SHIPS s, CLASSES c
+Where  o.ship = s.name AND s.class = c.class
+GROUP BY battle
+HAVING COUNT(DISTINCT country) >(SELECT COUNT(country)
+                                 FROM OUTCOMES o, SHIPS s, CLASSES c
+								 WHERE ship = name AND s.class = c.class AND battle = 'Soft Core');
+
+-- Г) грешна
+-- Cross join?
+SELECT DISTINCT battle
+FROM OUTCOMES o
+CROSS JOIN CLASSES c
+GROUP BY battle
+HAVING COUNT(DISTINCT country) >(SELECT COUNT(DISTINCT country)
+                                 FROM OUTCOMES o, CLASSES c
+								 WHERE battle = 'Soft Core');
+
+--12.07.2016
+use movies;
+-- 1. Да се посочи заявката, която извежда името на продуцента и имената на филмите, продуцирани от продуцента на 'Pretty Woman'.
+-- Възможно е името на продуцента на филма да не е известно.
+
+-- А) вярно
+SELECT t.name, title
+FROM movie m JOIN (SELECT name, cert#
+				   FROM movieexec
+				   WHERE cert# IN (SELECT producerc#
+								   FROM movie
+								   WHERE title='Pretty Woman')) t
+ON m.producerc# = t.cert#;
+
+-- Б) грешно - Вложената заявка не връща name и title
+SELECT name, title
+FROM (SELECT cert#
+	  FROM movieexec
+	  INTERSECT
+	  SELECT producerc#
+	  FROM movie
+      WHERE title='Pretty Woman')t
+
+-- В) грешно - извежда само продуцента на Pretty Woman
+SELECT name, title
+FROM movie m 
+JOIN movieexec me ON m.producerc# = me.cert#
+WHERE title='Pretty Woman';
+
+-- Г) грешно - извежда тези, които не са продуцирани от него
+SELECT name, title
+FROM movie m 
+LEFT JOIN movieexec me ON m.producerc# = me.cert#
+WHERE me.cert# NOT IN (SELECT producerc#
+					   FROM movie
+					   WHERE title='Pretty Woman');
+
+-- 2. Да се посочи заявката, която за актьорите, участвали в най­-много филми на съответното студио, извежда име на студио, име на актьор и брой филми, в които е участвал актьорът.
+-- В резултата не трябва да се включват филми, за които името на студиото не е известно.
+
+-- А) грешно - Невалиден COUNT в HAVING 
+--HAVING COUNT на подзаявка (дори и да се оправи като HAVING (SELECT COUNT(starname)..., ще имаме число което се сравнява с низа MAX(starname) 
+SELECT studioname, starname, COUNT(starname)
+FROM movie JOIN starsin ON title=movietitle AND year=movieyear
+WHERE studioname IS NOT NULL
+GROUP BY studioname, starname
+HAVING COUNT(SELECT starname
+			 FROM movie, starsin
+			 WHERE title = movietitle AND year = movieyear) >=
+	   MAX(starname);
+
+-- Б) грешно - Невалиден COUNT в HAVING
+SELECT studioname, starname, COUNT(starname)
+FROM movie m 
+LEFT JOIN starsin ON title=movietitle AND year=movieyear
+WHERE studioname IS NOT NULL
+GROUP BY studioname, starname
+HAVING COUNT(SELECT starname
+			 FROM movie, starsin
+			 WHERE title=movietitle
+			 AND year=movieyear)>=ALL(SELECT COUNT(*)
+									  FROM movie, starsin
+									  WHERE title=movietitle
+									  AND year=movieyear
+									  GROUP BY studioname, starname);
+-- В) грешно - броим имена на звезди вместо на филми
+SELECT studioname, starname, COUNT(DISTINCT starname)
+FROM movie m JOIN starsin ON title=movietitle AND year=movieyear
+WHERE studioname IS NOT NULL
+GROUP BY m.studioname, starname
+HAVING COUNT(starname)>=ALL(SELECT COUNT(DISTINCT starname)
+							FROM movie,starsin
+							WHERE title=movietitle
+							AND year=movieyear
+							AND studioname=m.studioname
+							GROUP BY studioname, starname);
+-- Г) вярно
+SELECT studioname, starname, COUNT(*)
+FROM movie m JOIN starsin ON title=movietitle AND year=movieyear
+WHERE studioname IS NOT NULL
+GROUP BY studioname, starname
+HAVING COUNT(*)>=ALL(SELECT COUNT(*)
+					 FROM movie,starsin
+					 WHERE title=movietitle
+			 		 AND year=movieyear
+					 AND studioname=m.studioname
+					 GROUP BY studioname ,starname);
+
+--10.09.2015
+use movies;
+--Да се посочи заявката, която извежда имената и адресите на всички актриси от София, както и на всички филмови студиа от София. Резултатите да са сортирани по адрес.
+-- А) грешно - извежда актриси и студиа с еднакви адреси (Студиото и човека трябва да са на еднакъв адрес)
+SELECT MS.name, MS.address
+FROM MovieStar AS MS
+JOIN Studio S ON MS.address =S.address
+WHERE MS.address LIKE '%Sofia%'AND gender = 'F'
+ORDER BY MS.address
+
+-- Б) вярно
+select *
+from (select name, address
+	  from MovieStar
+	  where gender = 'F'
+	 union
+	  select name, address
+	  from Studio) T
+where T.address like '%Sofia%'
+order by T.address
+
+--Не е сечение, защото се иска адресите и на звездите и на студиата ако им направим сечение значи искаме да съвпадат ---> един и същи адрес да го има и в адресите на звездите и в адресите на студиата
+select name, address
+from MovieStar
+where gender = 'F'and address like '%Sofia%'
+
+union 
+
+select name, address
+from Studio
+where address like '%Sofia%'
+order by address;
+
+-- В) грешно - В първата заявка няма ограничение да са от София order by преди union ?
+SELECT name, address
+FROM MovieStar MS
+WHERE gender = 'F'
+ORDER BY address
+UNION 
+SELECT name, address
+FROM Studio
+WHERE address LIKE '%Sofia%'
+ORDER BY address
+
+-- Г) грешно - MovieStar INTERSECT Studio
+SELECT DISTINCT name, address
+FROM MovieStar INTERSECT Studio
+WHERE address IS NOT NULL AND gender LIKE 'F'
+GROUP BY address
+HAVING address LIKE '%Sofia%'
+
+-- Д) грешно - JOINваме таблиците (JOIN между студио и актьор? Non sense)
+SELECT DISTINCT name, address
+FROM MovieStar
+FULL JOIN Studio ON address LIKE '%Sofia%' 
+WHERE gender LIKE 'F'
+ORDER BY address;
+
+--2. Да се посочи заявката, която за всяко студио с най-много три черно­бели филма извежда името му, адреса и средната дължина на филмите (без значение дали са цветни) 
+--на това студио. Студиа без филми също да се извеждат.
+-- А) грешно - COUNT(inColor = 'y') (искаме броя на ч/б фимли да е <= 3 не на цветните)
+SELECT name, address, AVG(length) AS avgLength
+FROM Studio
+LEFT JOIN Movie ON name = studioName
+GROUP BY studioName, address
+HAVING COUNT(inColor = 'y') <= 3;
+
+-- Б) грешно - декартово произведение на правилното студио с дължините на другите студиа
+-- не може така да се използва колона от временна таблица
+SELECT DISTINCT name, address, avgLength
+FROM Studio, (SELECT studioName, AVG(length) AS avgLength
+			  FROM Movie
+			  GROUP BY studioName) Averages
+WHERE NAME = ANY (SELECT studioName
+				  FROM Movie
+				  WHERE inColor = 'n'
+				  GROUP BY studioName
+				  HAVING COUNT(title) <= 3)
+
+-- В) грешно - HAVING - подзаявката връща броя на черно-бели филми, независимо от студиото
+SELECT Studio.name, Studio.address, AVG(Movie.length) AS avgLength
+FROM Movie
+RIGHT JOIN Studio ON studioName = name
+GROUP BY name, address
+HAVING (SELECT COUNT(*) FROM Movie WHERE inColor = 'n') <= 3
+
+-- Г) вярно
+SELECT name, address, AVG(length) AS avgLength
+FROM Studio
+LEFT JOIN Movie ON name = studioName
+WHERE NAME NOT IN (SELECT studioName
+				   FROM Movie
+				   WHERE inColor = 'n'
+				   GROUP BY studioName
+				   HAVING COUNT(*) > 3)
+GROUP BY name, address;
+
+--14.07.2015
+use movies;
+--Да сe посочи заявката, която извежда имената на всички филмови звезди,чието име не завършва на “а” и са играли както в цветни, така и в черно­бели филми.
+-- А) грешно - name != вместо name LIKE; няма да върне нищо, защото иска едновременно 'y' и 'n' за incolor
+SELECT name
+FROM MovieStar, StarsIn, Movie
+WHERE name=starName AND movieTitle=title AND movieYear=year AND name != '%a' AND inColor = 'y' AND inColor = 'n'
+
+-- Б) грешно - 'y' OR 'n' ще хване всички филми (за които не е NULL)
+-- inColor = 'y' OR inColor = 'n' може само едното да е вярно
+SELECT MovieStar.name
+FROM MovieStar
+WHERE NOT (name LIKE '%a') AND name IN (SELECT starName
+										FROM StarsIn
+										JOIN Movie ON movieTitle = title AND movieYear = year
+										WHERE inColor = 'y' OR inColor = 'n')
+
+-- В) грешно - AND starName = (...) трябва да е AND starName IN (...)
+SELECT DISTINCT starName
+FROM StarsIn
+INNER JOIN Movie ON movieTitle = title AND movieYear = year
+WHERE starName NOT LIKE '%a' AND inColor = 'y'AND starName = (SELECT starName
+															  FROM StarsIn, Movie
+															  WHERE inColor = 'n')
+
+-- Г) вярно
+select starName
+from StarsIn
+join Movie on movieTitle = title and movieYear = year
+where starName not like '%a' and inColor = 'y'
+
+intersect
+
+select starName
+from StarsIn
+join Movie on movieTitle = title and movieYear = year
+where inColor = 'n'
+
+-- 2.Посочете заявката, която извежда за всяка филмова звезда, играла в най­-много 5 филма, следната информация:
+--­име;
+--­рождена година;
+--­брой студиа, с които е работила.
+--Ако за дадена звезда няма информация в какви филми е играла, за нея също да се извежда ред(с брой студиа, равен на 0).
+-- Нито един от посочените отговори не изглежда да е верен
+
+--а)грешно - birthdate.year не е валидно -> YEAR(birthdate)
+SELECT DISTINCT name, birthdate.year, COUNT(studioName)
+FROM MovieStar, StarsIn, Movie
+WHERE name = starname AND((movieTitle=title AND movieYear=year) OR title IS NULL)
+GROUP BY name, birthdate.year
+HAVING COUNT(title) <= 5
+
+--б)грешна - групиране само по име, но извеждаме birthdate
+SELECT name, YEAR(birthdate), COUNT(DISTINCT studioName)
+FROM MovieStar LEFT OUTER JOIN StarsIn ON name = starname LEFT JOIN Movie ON movieTitle = title AND movieYear = year
+GROUP BY name
+HAVING COUNT(title) <= 5;
+
+--в)грешна - групиране само по име, но извеждаме birthdate и нещо с реда на join-овете ?
+SELECT StarsIn.starname, YEAR(birthdate), COUNT(DISTINCT studioName)
+FROM Movie JOIN StarsIn ON movieTitle = title AND movieYear = year RIGHT OUTER JOIN MovieStar ON MovieStar.name = StarsIn.starname
+GROUP BY StarsIn.starname
+HAVING COUNT(DISTINCT title) <= 5;
+
+--г) грешна having без group (order by е изписано вместо group by)
+SELECT name, year(birthdate), COUNT(SELECT DISTINCT studioName
+									FROM Movie JOIN StarsIn ON title = movieTitle AND year = movieYear
+									WHERE starname = name)
+FROM MovieStar
+HAVING COUNT(SELECT * 
+				FROM StarsIn 
+				WHERE starname = name) <= 5
+ORDER BY name, year(birthdate);
+
+
+--11.9.2014
+use ships;
+--1. Оградете буквата на заявката, която извежда имената на всички кораби, пуснати на вода в година, в която е имало битка (не е задължително корабът да е участвал в нея).
+
+--Отговор А - не е верен, защото има агрегатна функция в where count(*)
+select name 
+from ships 
+where launched = any(select year(date)
+					from battles
+					where count(*)>=1);
+
+--ОТГОВОР Б - Верен отговор
+select distinct ships.name
+from battles, ships
+where launched=year(date);
+
+--Отговор В - не е верен -- имена на битки вместо кораби
+select name
+from battles 
+where exists(select distinct *
+			 from ships 
+			 where year(date)=launched);
+
+--Отговор Г - не е верен тъй като name не е ясно дали е от ships или battles
+select distinct name 
+from ships
+join battles on launched=year(date);
+
+--2. Оградете буквата на заявката, която за всички държави, които имат най-много 3 (евентуално 0) кораба, извежда името на държавата и броя потънали кораби ??
+--(който също може да бъде 0). 
+-- А) грешно - трябва и result is null
+select country,count(result)
+from classes c 
+left join ships s on c.class=s.class
+left join outcomes o on s.name=o.ship
+where o.result='sunk'
+group by country 
+having count(ship)<=3;
+
+-- Б) грешно - count(result is 'sunk') и агрегатна функция в where
+select country,count(result is 'sunk')
+from ships,classes,outcomes
+where count(ship)<=3 or ship is null;
+
+-- В) грешно - ползваме колона от временна таблица в main select и трябва да е left join
+select distinct classes.country,sunk_cnt
+from classes
+right join (select country,count(*) as sunk_cnt
+			from classes c join ships s on c.class=s.class
+			join outcomes o on s.name=o.ship
+			where result='sunk'
+			group by country)sunk on classes.country=sunk.country
+where sunk_cnt<=3;
+
+-- Г) грешно - count(result = 'sunk') и sunk_cnt не е известно какво е
+select country,count(result= 'sunk') as sunk_cnt
+from ships s 
+join outcomes o on s.name=o.ship
+right join classes c on s.class=c.class
+where count(*)<=3
+group by country,sunk_cnt;
+
+--ОТГОВОР Д вярно 
+select distinct country, (select count(*)
+							from classes c2 join ships s on c2.class=s.class join outcomes o on s.name=o.ship
+							where c2.country=c.country and result='sunk')
+from classes c 
+where(select count(*) from classes c2 join ships s on c2.class=s.class where c2.country=c.country)<=3;
+
+--15.07.2014
+use pc;
+-- 1. Оградете буквата на заявката, която извежда всички производители на настолни компютри, които произвеждат и лаптопи.
+-- А) вярно
+select distinct maker
+from product 
+where product.type='PC'and maker in(select maker
+                                    from product 
+									join laptop on product.model=laptop.model);
+
+-- Б) грешно - неправилен join
+select maker 
+from product p1
+cross join product p2 
+where p1.maker=p2.maker and p1.type='PC'and p2.type='Laptop'
+group by maker;
+
+--	***поправена версия 
+						select p1.maker 
+						from product p1
+						join product p2 on p1.maker = p2.maker
+						where p1.maker=p2.maker and p1.type='PC'and p2.type='Laptop'
+						group by p1.maker;
+
+-- В) грешно - няма как type едновременно да е PC / Laptop
+select distinct maker 
+from product 
+where type='PC'and type='Laptop';
+
+-- Г) грешно - трябва да използваме intersect 
+-- не искаме всички производители произвеждащи PC OR Laptop, а искаме AND
+select maker 
+from product
+where type='PC'
+union
+select maker
+from product
+where type='Laptop';
+
+--2. Оградете буквата на заявката, която извежда кодовете, моделите и размерите на екраните на всички лаптопи, чиито производители имат не повече от три модела принтери (евентуално 0).
+
+-- А грешно - where maker is ..
+select code,model,screen
+from laptop,product 
+where maker is having count(printer.model)<=3;
+
+--Б грешно - липсва group by и count(select*...
+select code,l.model,screen
+from product p 
+left join laptop l on p.model=l.model
+having count(select*
+		     from product 
+			 where maker=p.maker and type='Printer')<=3;
+
+--ОТГОВОР В - правилен
+select code,l.model,screen
+from laptop l
+inner join product p on l.model=p.model
+where maker not in(select maker 
+				   from product
+				   where type='Printer'
+				   group by maker 
+				   having count(*)>3);
+				   
+--Г грешна - производителите които не произвеждат принетери се филтрират още на  where type='Printer' и по този начин
+-- те изобщо няма да присъстват в резултата от подзаявката
+select l.code,l.model,l.screen
+from laptop l 
+join product p on l.model=p.model
+where maker in(select maker
+			   from product 
+			   where type='Printer'
+			   group by maker 
+			   having count(*)<=3); --count(*) - брои и редове в които има null стойности 
+
+--Д неправилен - заради left join и в group by липсват l.model,l.screen
+select l.code,l.model,l.screen
+from product p 
+left join laptop l on p.model=l.model
+left join printer on p.model=printer.model
+group by l.code
+having count(distinct printer.code)<=3;
+
+--08.09.2010
+use movies;
+-- Task 1
+--Да се посочи заявката, извеждаща всички актриси, които не са играли в нито един филм с име, започващо с буквата А.
+--Актриси, за които в базата от данни няма информация за техните участия, също трябва да бъдат изведени.
+
+--А грешен -  трябва да е MOVIETITLE LIKE 'A%'
+--ако не е играла във филм?
+SELECT DISTINCT NAME 
+FROM MOVIESTAR  
+LEFT JOIN STARSIN ON NAME = STARNAME 
+WHERE GENDER = 'F' AND MOVIETITLE NOT LIKE 'A%';
+
+--Б грешен - Актриси, за които в базата от данни няма информация за техните участия, няма да бъдат изведени.
+SELECT NAME 
+FROM MOVIESTAR 
+JOIN STARSIN ON STARNAME = NAME 
+WHERE GENDER = 'F' AND MOVIETITLE LIKE 'A%' 
+GROUP BY NAME 
+HAVING COUNT(*) = 0
+
+--В правилен
+SELECT MS.NAME 
+FROM MOVIESTAR MS 
+WHERE MS.GENDER = 'F' AND NOT EXISTS (SELECT 1      
+									  FROM STARSIN SI
+									  WHERE SI.STARNAME = MS.NAME AND SI.MOVIETITLE LIKE 'A%')
+
+--Г - грешен - WHERE NOT MOVIETITLE LIKE 'A%'
+--ако не е играла във филм?
+SELECT NAME 
+FROM MOVIESTAR
+WHERE GENDER = 'F' AND NAME IN(SELECT DISTINCT STARNAME    
+							   FROM STARSIN    
+							   WHERE NOT MOVIETITLE LIKE 'A%')
+
+--Task 2
+--Да се посочи заявката, която за всяка филмова звезда (без значение от пола), родена преди 1990 г., извежда възрастта, на която е играла за първи път във филм. 
+--Звезди, за които няма информация за техните участия във филми, не трябва да бъдат извеждани. --> inner join 
+
+--А правилен
+SELECT NAME, MIN( MOVIEYEAR - YEAR(BIRTHDATE) ) AS DEBUT_AGE 
+FROM MOVIESTAR 
+JOIN STARSIN ON NAME = STARNAME 
+WHERE YEAR(BIRTHDATE) < 1990 
+GROUP BY NAME; 
+
+--Б Неправилен отговор - в group by липсва birthdate. Ако не липсваше този щеше да е верният отговор
+SELECT NAME, MIN(MOVIEYEAR) - YEAR(BIRTHDATE) AS DEBUT_AGE 
+FROM MOVIESTAR 
+JOIN STARSIN ON NAME = STARNAME 
+WHERE YEAR(BIRTHDATE) < 1990 
+GROUP BY NAME
+
+--В НЕправилен - в group by липсва bithdate.Не покрива следното изискване "Звезди, за които няма информация за техните участия във филми, не трябва да бъдат извеждани."
+--Също при left join в on пишем условието за дясната таблица, в случая условието YEAR(BIRTHDATE) < 1990 е за лявата таблица => това условие трябва да е в where 
+SELECT NAME, MIN(MOVIEYEAR) - YEAR(BIRTHDATE) AS DEBUT_AGE 
+FROM MOVIESTAR 
+LEFT JOIN STARSIN ON NAME = STARNAME AND YEAR(BIRTHDATE) < 1990 
+GROUP BY NAME 
+HAVING MIN(MOVIEYEAR)
+
+--Г НЕправилен -  не извежда правилно възрастта на която е играла за първи път и having се използва само с group by
+SELECT DISTINCT MS.NAME, MOVIEYEAR - YEAR(BIRTHDATE) AS DEBUT_AGE 
+FROM MOVIESTAR MS, STARSIN 
+WHERE MS.NAME = STARNAME AND YEAR(BIRTHDATE) < 1990
+HAVING MOVIEYEAR <= ALL (SELECT MOVIEYEAR                         
+                         FROM STARSIN SI
+						 WHERE SI.STARNAME = MS.NAME); 
+
+--15.07.2010
+use ships;
+--Task 1
+--Посочете заявката, която извежда всички държави, които имат както класове с по-малко от 9 оръдия(numguns), така и класове с над 12 оръдия:
+--Отговор А - грешен - едновременно >12 и <9
+SELECT DISTINCT COUNTRY 
+FROM CLASSES 
+WHERE NUMGUNS<9 AND NUMGUNS>12
+
+--вярно ще е така:
+SELECT DISTINCT COUNTRY 
+FROM CLASSES 
+WHERE NUMGUNS<9 
+intersect
+SELECT DISTINCT COUNTRY 
+FROM CLASSES 
+WHERE NUMGUNS>12
+
+--Б правилен (Self join)
+SELECT DISTINCT C1.COUNTRY 
+FROM CLASSES C1 
+JOIN CLASSES C2 ON C1.COUNTRY=C2.COUNTRY 
+WHERE C1.NUMGUNS<9 AND C2.NUMGUNS>12; 
+
+--в) грешен - трябва да е сечение
+SELECT COUNTRY, NUMGUNS 
+FROM CLASSES 
+WHERE NUMGUNS<9 
+UNION 
+SELECT COUNTRY, NUMGUNS 
+FROM CLASSES 
+WHERE NUMGUNS>12; 
+
+--г) грешен COUNTRY = (SELECT COUNTRY 
+--***правилно е COUNTRY in (SELECT COUNTRY) и едновременно >12 и <9
+SELECT DISTINCT COUNTRY 
+FROM CLASSES
+WHERE NUMGUNS<9 and COUNTRY = (SELECT COUNTRY  
+							   FROM CLASSES  
+							   WHERE NUMGUNS > 12);
+--Task2
+--Посочете заявката, която за всяка държава, участвала в не повече от 4 битки, извежда името й и броя битки, в които е участвала.
+--Ако дадена държава няма нито един кораб или не е участвала в нито една битка, за нея да извежда 0.
+
+--A грешен - не покрива случая "Ако дадена държава няма нито един кораб или не е участвала в нито една битка, за нея да извежда 0. "
+SELECT COUNTRY, COUNT(DISTINCT BATTLE)
+FROM CLASSES C, SHIPS S, OUTCOMES O 
+WHERE C.CLASS=S.CLASS AND S.NAME=O.SHIP 
+GROUP BY COUNTRY 
+HAVING COUNT(DISTINCT O.BATTLE)<4
+
+--Б грешна -  distinct battles
+SELECT COUNTRY, COUNT(O.BATTLE) AS NUM_BATTLES 
+FROM CLASSES C
+LEFT JOIN SHIPS S ON C.CLASS=S.CLASS 
+LEFT JOIN OUTCOMES O ON S.NAME=O.SHIP 
+GROUP BY COUNTRY 
+HAVING COUNT(O.BATTLE)<4;
+
+--в) вярна
+SELECT COUNTRY, COUNT(DISTINCT BATTLE) 
+FROM OUTCOMES 
+JOIN SHIPS ON NAME=SHIP 
+RIGHT JOIN CLASSES ON CLASSES.CLASS=SHIPS.CLASS 
+GROUP BY COUNTRY 
+HAVING COUNT(DISTINCT OUTCOMES.BATTLE)<=3; 
+
+--г) грешен - липсва distinct в count, липсва group by няма group by 
+--не покрива случая "Ако дадена държава няма нито един кораб за нея да извежда 0. "" 
+SELECT C.COUNTRY, COUNT(O.BATTLE) 
+FROM CLASSES AS C 
+INNER JOIN SHIPS AS S ON C.CLASS=S.CLASS 
+LEFT OUTER JOIN OUTCOMES AS O ON S.NAME=O.SHIP 
+WHERE COUNT(O.BATTLE)<=3;
+
+--13.09.2008
+use ships;
+--Task 1
+--Посочете заявката, която извежда за всеки клас годината на най-ранно и най-късно пуснатия на вода кораб
+
+--A грешен - липсва group by c.class;
+select c.class,min(ss.launched), max(ss.launched) 
+from classes c 
+join ships ss on ss.class = c.class;
+
+--Отговор Б правилен
+select c.class,min(ss.launched), max(ss.launched) 
+from classes c 
+join ships ss on ss.class = c.class
+group by c.class;
+
+--c) грешен - having min(ss.launched) and max(ss.launched); Трябва да има булева проверка
+select c.class,min(ss.launched), max(ss.launched) 
+from classes c 
+join ships ss on ss.class = c.class
+group by c.class
+having min(ss.launched) and max(ss.launched);
+
+--d) грешен - липсва group by c.class; и не това се иска
+select c.class,min(ss.launched) 
+from classes c 
+join ships ss on ss.class = c.class
+
+union all 
+
+select c.class,max(ss.launched) 
+from classes c 
+join ships ss on ss.class = c.class
+
+
+--Task 2
+--Посочете заявката, която извежда държавата/държавите с най-много класове
+
+--a) грешен - агрегатни функции в where 
+--няма distinct на country и няма как да ги броим c.class т.к. 
+--вложената заявка се изпълнява ред по ред за ясеки кортеж от c.class и е винаги 1
+select c.country 
+from classes c 
+where not exists  ( select *  
+					from classes c1  
+					where c1.country != c.country and count(c1.class) > count(c.class) );
+
+--b) грешен - max(count(c.class)) - Трябва да има булева проверка
+select c.country 
+from classes c    
+group by c.country 
+having max(count(c.class));
+
+--c) грешен - max(count(c1.class)) и агрегатна функция в where
+select c.country 
+from classes c 
+where count(*) = (select max(count(c1.class))
+				  from classes c1  
+				  group by c1.country )
+group by c.country;
+
+--Отговор D) правилен
+select c.country 
+from classes c 
+group by c.country 
+having count(*) >= all ( select count(*)
+						 from classes c1 
+						 group by c1.country );
+
+--08.07.2008
+--Task 1
+--Посочете заявката, която извежда имената на битките, в които няма оцелели кораби–всички участвали са потънали
+
+--А грешна - дава битки, в които има потънали
+select distinct b.name
+from Battles b 
+join Outcomes o on b.name = o.battle 
+where o.result = 'sunk';
+
+--B грешна - безмислено групиране на неща имащи поне 1 потънал кораб
+select o.battle 
+from Outcomes o  
+group by o.battle,o.result
+having o.result = 'sunk';
+
+--C вярна но o.battle  = o1.battle and o.ship = o1.ship???
+select distinct o.battle 
+from Outcomes o 
+left join Outcomes o1 on o.battle  = o1.battle and o.ship = o1.ship and o1.result = 'sunk'
+group by o.battle 
+having count(o.ship) = count(o1.ship);
+
+--D грешна - дава всички, в които няма потънали кораби
+select o.battle  
+from Outcomes o 
+group by o.battle  
+having count(case when o.result = 'sunk' then 'Y' end)=0;
+
+
