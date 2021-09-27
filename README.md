@@ -1,5 +1,8 @@
 # ТЕМИ ЗА ДИ, БП "КОМПЮТЪРНИ НАУКИ"
 
+## 2021 
+* [8 септември 2021](https://intranet.fmi.uni-sofia.bg/index.php/s/JQZtClyby5qQrk7)
+* [13 юли 2021](https://intranet.fmi.uni-sofia.bg/index.php/s/MqC5IJCb3eTSm8U)
 ## 2020 
 * [16 септември 2020](https://intranet.fmi.uni-sofia.bg/index.php/s/o1mQN0S3lmXkfEJ)
 * [5 август 2020](https://intranet.fmi.uni-sofia.bg/index.php/s/C0sDLRae3bYkCVR)
